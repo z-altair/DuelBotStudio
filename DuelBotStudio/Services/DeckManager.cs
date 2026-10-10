@@ -8,91 +8,91 @@ namespace DuelBotStudio.Services
     {
         private readonly YgoCardInfoService _cardInfoService;
 
-        public DeckModel currentDeck { get; set; }
+        public DeckModel CurrentDeck { get; set; }
 
         public DeckManager(YgoCardInfoService cardInfoService)
         {
             _cardInfoService = cardInfoService;
-            currentDeck = new DeckModel();
+            CurrentDeck = new DeckModel();
         }
 
-        public async Task loadFromParseResultAsync(YdkParseResult parseResult)
+        public async Task LoadFromParseResultAsync(YdkParseResult parseResult)
         {
-            currentDeck = new DeckModel();
+            CurrentDeck = new DeckModel();
 
-            foreach (int id in parseResult.mainDeckIds)
+            foreach (int id in parseResult.MainDeckIds)
             {
-                CardModel? card = await _cardInfoService.getCardByIdAsync(id) ?? new CardModel { id = id, name = $"Card {id}", description = string.Empty, type = "Unknown", attribute = string.Empty, race = string.Empty };
-                currentDeck.mainDeck.Add(card);
+                CardModel? card = await _cardInfoService.GetCardByIdAsync(id) ?? new CardModel { Id = id, Name = $"Card {id}", Description = string.Empty, Type = "Unknown", Attribute = string.Empty, Race = string.Empty };
+                CurrentDeck.MainDeck.Add(card);
             }
 
-            foreach (int id in parseResult.extraDeckIds)
+            foreach (int id in parseResult.ExtraDeckIds)
             {
-                CardModel? card = await _cardInfoService.getCardByIdAsync(id) ?? new CardModel { id = id, name = $"Card {id}", description = string.Empty, type = "Unknown", attribute = string.Empty, race = string.Empty };
-                currentDeck.extraDeck.Add(card);
+                CardModel? card = await _cardInfoService.GetCardByIdAsync(id) ?? new CardModel { Id = id, Name = $"Card {id}", Description = string.Empty, Type = "Unknown", Attribute = string.Empty, Race = string.Empty };
+                CurrentDeck.ExtraDeck.Add(card);
             }
 
-            foreach (int id in parseResult.sideDeckIds)
+            foreach (int id in parseResult.SideDeckIds)
             {
-                CardModel? card = await _cardInfoService.getCardByIdAsync(id) ?? new CardModel { id = id, name = $"Card {id}", description = string.Empty, type = "Unknown", attribute = string.Empty, race = string.Empty };
-                currentDeck.sideDeck.Add(card);
+                CardModel? card = await _cardInfoService.GetCardByIdAsync(id) ?? new CardModel { Id = id, Name = $"Card {id}", Description = string.Empty, Type = "Unknown", Attribute = string.Empty, Race = string.Empty };
+                CurrentDeck.SideDeck.Add(card);
             }
         }
 
-        public bool isExtraDeckCard(CardModel? card)
+        public bool IsExtraDeckCard(CardModel? card)
         {
-            if (string.IsNullOrWhiteSpace(card?.type))
+            if (string.IsNullOrWhiteSpace(card?.Type))
             {
                 return false;
             }
 
-            string type = card.type.ToLowerInvariant();
+            string type = card.Type.ToLowerInvariant();
             return type.Contains("fusion", StringComparison.Ordinal) ||
                    type.Contains("synchro", StringComparison.Ordinal) ||
                    type.Contains("xyz", StringComparison.Ordinal) ||
                    type.Contains("link", StringComparison.Ordinal);
         }
 
-        public void addCard(CardModel card)
+        public void AddCard(CardModel card)
         {
-            if (currentDeck == null)
+            if (CurrentDeck == null)
             {
-                currentDeck = new DeckModel();
+                CurrentDeck = new DeckModel();
             }
 
-            if (isExtraDeckCard(card))
+            if (IsExtraDeckCard(card))
             {
-                currentDeck.extraDeck.Add(card);
+                CurrentDeck.ExtraDeck.Add(card);
             }
             else
             {
-                currentDeck.mainDeck.Add(card);
+                CurrentDeck.MainDeck.Add(card);
             }
         }
 
-        public void removeCardFromMain(int cardId)
+        public void RemoveCardFromMain(int cardId)
         {
-            var cardToRemove = currentDeck.mainDeck.FirstOrDefault(c => c.id == cardId);
+            var cardToRemove = CurrentDeck.MainDeck.FirstOrDefault(c => c.Id == cardId);
             if (cardToRemove != null)
             {
-                currentDeck.mainDeck.Remove(cardToRemove);
+                CurrentDeck.MainDeck.Remove(cardToRemove);
             }
         }
-        public void removeCardFromExtra(int cardId)
+        public void RemoveCardFromExtra(int cardId)
         {
-            var cardToRemove = currentDeck.extraDeck.FirstOrDefault(c => c.id == cardId);
+            var cardToRemove = CurrentDeck.ExtraDeck.FirstOrDefault(c => c.Id == cardId);
             if (cardToRemove != null)
             {
-                currentDeck.extraDeck.Remove(cardToRemove);
+                CurrentDeck.ExtraDeck.Remove(cardToRemove);
             }
         }
 
-        public void removeCardFromSide(int cardId)
+        public void RemoveCardFromSide(int cardId)
         {
-            var cardToRemove = currentDeck.sideDeck.FirstOrDefault(c => c.id == cardId);
+            var cardToRemove = CurrentDeck.SideDeck.FirstOrDefault(c => c.Id == cardId);
             if (cardToRemove != null)
             {
-                currentDeck.sideDeck.Remove(cardToRemove);
+                CurrentDeck.SideDeck.Remove(cardToRemove);
             }
         }
     }

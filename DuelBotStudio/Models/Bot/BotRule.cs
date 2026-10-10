@@ -6,11 +6,11 @@ namespace DuelBotStudio.Models.Bot
 {
     public class BotRule
     {
-        public int cardId {  get; set; }
-        public string cardName { get; set; } = string.Empty;
-        public BotActionType action {  get; set; }
-        public string conditionExpression { get; set; } = string.Empty;
-        public int priority { get; set; }
+        public int CardId { get; set; }
+        public string CardName { get; set; } = string.Empty;
+        public BotActionType Action { get; set; }
+        public string ConditionExpression { get; set; } = string.Empty;
+        public int Priority { get; set; }
 
     }
 }

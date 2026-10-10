@@ -26,7 +26,7 @@ namespace DuelBotStudio.Views.Controls
             _deckManager = deckManager;
         }
 
-        private void onLoadDeckButtonClick(object sender, RoutedEventArgs e)
+        private void OnLoadDeckButtonClick(object sender, RoutedEventArgs e)
         {
             LoadDeckRequested?.Invoke(this, e);
         }
@@ -38,13 +38,13 @@ namespace DuelBotStudio.Views.Controls
                 return;
             }
 
-            var deck = _deckManager.currentDeck;
-            await renderSection(MainDeckPanel, MainDeckHeader, "Main Deck", deck.mainDeck);
-            await renderSection(ExtraDeckPanel, ExtraDeckHeader, "Extra Deck", deck.extraDeck);
-            await renderSection(SideDeckPanel, SideDeckHeader, "Side Deck", deck.sideDeck);
+            var deck = _deckManager.CurrentDeck;
+            await RenderSection(MainDeckPanel, MainDeckHeader, "Main Deck", deck.MainDeck);
+            await RenderSection(ExtraDeckPanel, ExtraDeckHeader, "Extra Deck", deck.ExtraDeck);
+            await RenderSection(SideDeckPanel, SideDeckHeader, "Side Deck", deck.SideDeck);
         }
 
-        private async Task renderSection(WrapPanel panel, TextBlock header, string title, IReadOnlyList<CardModel> cards)
+        private async Task RenderSection(WrapPanel panel, TextBlock header, string title, IReadOnlyList<CardModel> cards)
         {
             panel.Children.Clear();
             header.Text = $"{title} ({cards.Count})";
@@ -60,11 +60,11 @@ namespace DuelBotStudio.Views.Controls
                     Tag = card,
                     Cursor = Cursors.Hand
                 };
-                image.MouseLeftButtonDown += onCardImageClick;
-                image.MouseRightButtonDown += onCardImageRightClick;
+                image.MouseLeftButtonDown += OnCardImageClick;
+                image.MouseRightButtonDown += OnCardImageRightClick;
                 panel.Children.Add(image);
 
-                BitmapImage? bitmap = await CardImageCache.getCardImageAsync(card.id);
+                BitmapImage? bitmap = await CardImageCache.GetCardImageAsync(card.Id);
                 if (bitmap != null && panel.Children.Contains(image))
                 {
                     image.Source = bitmap;
@@ -72,15 +72,15 @@ namespace DuelBotStudio.Views.Controls
             }
         }
 
-        private void onCardImageClick(object sender, MouseButtonEventArgs e)
+        private void OnCardImageClick(object sender, MouseButtonEventArgs e)
         {
             if (sender is Image { Tag: CardModel card })
             {
-                CardSelected?.Invoke(this, card.id);
+                CardSelected?.Invoke(this, card.Id);
             }
         }
 
-        private async void onCardImageRightClick(object sender, MouseButtonEventArgs e)
+        private async void OnCardImageRightClick(object sender, MouseButtonEventArgs e)
         {
             if (_deckManager == null || sender is not Image image || image.Tag is not CardModel card ||
                 image.Parent is not WrapPanel panel)
@@ -90,15 +90,15 @@ namespace DuelBotStudio.Views.Controls
 
             if (panel == MainDeckPanel)
             {
-                _deckManager.removeCardFromMain(card.id);
+                _deckManager.RemoveCardFromMain(card.Id);
             }
             else if (panel == ExtraDeckPanel)
             {
-                _deckManager.removeCardFromExtra(card.id);
+                _deckManager.RemoveCardFromExtra(card.Id);
             }
             else if (panel == SideDeckPanel)
             {
-                _deckManager.removeCardFromSide(card.id);
+                _deckManager.RemoveCardFromSide(card.Id);
             }
 
             await RefreshAsync();

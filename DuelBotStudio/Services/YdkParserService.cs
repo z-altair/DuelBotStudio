@@ -13,11 +13,11 @@ namespace DuelBotStudio.Services
 
             if (!File.Exists(filePath))
             {
-                result.errors.Add($"File doesn't exist: {filePath}");
+                result.Errors.Add($"File doesn't exist: {filePath}");
                 return result;
             }
 
-            DeckSection currentSection = DeckSection.MAIN;
+            DeckSection currentSection = DeckSection.Main;
 
             foreach (string line in File.ReadLines(filePath))
             {
@@ -28,17 +28,17 @@ namespace DuelBotStudio.Services
 
                 if(text.Equals("#main", StringComparison.OrdinalIgnoreCase))
                 {
-                    currentSection = DeckSection.MAIN;
+                    currentSection = DeckSection.Main;
                     continue;
                 }
                 if (text.Equals("#extra", StringComparison.OrdinalIgnoreCase))
                 {
-                    currentSection = DeckSection.EXTRA;
+                    currentSection = DeckSection.Extra;
                     continue;
                 }
                 if (text.Equals("!side", StringComparison.OrdinalIgnoreCase))
                 {
-                    currentSection = DeckSection.SIDE;
+                    currentSection = DeckSection.Side;
                     continue;
                 }
 
@@ -46,14 +46,14 @@ namespace DuelBotStudio.Services
                 {
                     switch (currentSection)
                     {
-                        case DeckSection.MAIN:
-                            result.mainDeckIds.Add(cardId);
+                        case DeckSection.Main:
+                            result.MainDeckIds.Add(cardId);
                             break;
-                        case DeckSection.EXTRA:
-                            result.extraDeckIds.Add(cardId);
+                        case DeckSection.Extra:
+                            result.ExtraDeckIds.Add(cardId);
                             break;
-                        case DeckSection.SIDE:
-                            result.sideDeckIds.Add(cardId);
+                        case DeckSection.Side:
+                            result.SideDeckIds.Add(cardId);
                             break;
                     }
                 }

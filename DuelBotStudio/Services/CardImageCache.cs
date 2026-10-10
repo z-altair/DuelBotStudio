@@ -1,16 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.IO;
 using System.Net.Http;
-using System.Text;
 using System.Windows.Media.Imaging;
 
 namespace DuelBotStudio.Services
 {
     public static class CardImageCache
     {
-        private const int MAX_MEMORY_CACHE_CAPACITY = 100;
+        private const int MaxMemoryCacheCapacity = 100;
         private static readonly string _cacheDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Cache", "Images");
         private static readonly Dictionary<int, BitmapImage> _memoryCache = new Dictionary<int, BitmapImage>();
         private static readonly LinkedList<int> _lruList = new LinkedList<int>();
@@ -24,7 +22,7 @@ namespace DuelBotStudio.Services
             }
         }
 
-        public static async Task<BitmapImage?> getCardImageAsync(int cardId)
+        public static async Task<BitmapImage?> GetCardImageAsync(int cardId)
         {
             // Level 1: RAM Memory Cache
             if (_memoryCache.TryGetValue(cardId, out var cachedImage))
@@ -51,18 +49,18 @@ namespace DuelBotStudio.Services
             }
 
             // Level 3: Load from Disk into BitmapImage
-            BitmapImage? bitmap = loadBitmapFromFile(filePath);
+            BitmapImage? bitmap = LoadBitmapFromFile(filePath);
             if (bitmap != null)
             {
-                addToMemoryCache(cardId, bitmap);
+                AddToMemoryCache(cardId, bitmap);
             }
 
             return bitmap;
         }
 
-        private static void addToMemoryCache(int cardId, BitmapImage bitmap)
+        private static void AddToMemoryCache(int cardId, BitmapImage bitmap)
         {
-            if (_memoryCache.Count >= MAX_MEMORY_CACHE_CAPACITY)
+            if (_memoryCache.Count >= MaxMemoryCacheCapacity)
             {
                 LinkedListNode<int>? oldestNode = _lruList.First;
                 if (oldestNode != null)
@@ -77,7 +75,7 @@ namespace DuelBotStudio.Services
             _lruList.AddLast(cardId);
         }
 
-        private static BitmapImage? loadBitmapFromFile(string filePath)
+        private static BitmapImage? LoadBitmapFromFile(string filePath)
         {
             try
             {

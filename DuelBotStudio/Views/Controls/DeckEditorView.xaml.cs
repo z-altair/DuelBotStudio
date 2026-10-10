@@ -23,7 +23,7 @@ namespace DuelBotStudio.Views.Controls
             _deckManager = deckManager;
         }
 
-        private async void onSearchButtonClick(object sender, RoutedEventArgs e)
+        private async void OnSearchButtonClick(object sender, RoutedEventArgs e)
         {
             if (_cardInfoService == null)
             {
@@ -37,10 +37,10 @@ namespace DuelBotStudio.Views.Controls
                 return;
             }
 
-            SearchResultsListBox.ItemsSource = await _cardInfoService.searchCardsByNameAsync(query);
+            SearchResultsListBox.ItemsSource = await _cardInfoService.SearchCardsByNameAsync(query);
         }
 
-        private void onSearchResultRightClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        private void OnSearchResultRightClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
             if (_deckManager == null ||
                 (e.OriginalSource as FrameworkElement)?.DataContext is not CardModel selectedCard)
@@ -48,7 +48,7 @@ namespace DuelBotStudio.Views.Controls
                 return;
             }
 
-            _deckManager.addCard(selectedCard);
+            _deckManager.AddCard(selectedCard);
             DeckChanged?.Invoke(this, EventArgs.Empty);
             e.Handled = true;
         }

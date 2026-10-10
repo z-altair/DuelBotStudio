@@ -2,9 +2,9 @@
 {
     public enum DeckSection
     {
-        MAIN,
-        EXTRA,
-        SIDE
+        Main,
+        Extra,
+        Side
 
     }
 }

@@ -7,8 +7,8 @@ namespace DuelBotStudio.Models.Bot
 {
     public class BotProfile
     {
-        public string botName { get; set; } = "Custom Bot";
-        public DeckModel associatedDeck { get; set; } = new DeckModel();
-        public List<BotRule> rules { get; set; } = new List<BotRule>();
+        public string BotName { get; set; } = "Custom Bot";
+        public DeckModel AssociatedDeck { get; set; } = new DeckModel();
+        public List<BotRule> Rules { get; set; } = new List<BotRule>();
     }
 }

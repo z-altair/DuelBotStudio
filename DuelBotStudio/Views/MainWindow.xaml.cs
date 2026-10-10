@@ -21,12 +21,12 @@ namespace DuelBotStudio
             DeckViewerControl.Initialize(_deckManager);
             DeckEditorControl.Initialize(cardInfoService, _deckManager);
 
-            DeckViewerControl.LoadDeckRequested += onLoadDeckButtonClick;
+            DeckViewerControl.LoadDeckRequested += OnLoadDeckButtonClick;
             DeckViewerControl.CardSelected += async (_, cardId) => await CardDetailsControl.ShowCardAsync(cardId);
             DeckEditorControl.DeckChanged += async (_, _) => await DeckViewerControl.RefreshAsync();
         }
 
-        private async void onLoadDeckButtonClick(object sender, RoutedEventArgs e)
+        private async void OnLoadDeckButtonClick(object sender, RoutedEventArgs e)
         {
             var dialog = new OpenFileDialog
             {
@@ -40,13 +40,13 @@ namespace DuelBotStudio
             }
 
             var parseResult = _ydkParserService.ParseFile(dialog.FileName);
-            if (parseResult.hasErrors)
+            if (parseResult.HasErrors)
             {
-                MessageBox.Show(string.Join("\n", parseResult.errors), "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(string.Join("\n", parseResult.Errors), "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
 
-            await _deckManager.loadFromParseResultAsync(parseResult);
+            await _deckManager.LoadFromParseResultAsync(parseResult);
             CardDetailsControl.Clear();
             await DeckViewerControl.RefreshAsync();
         }

@@ -6,7 +6,7 @@
                 DockPanel.Dock="Top"
                 Height="35"
                 Margin="0,0,0,10"
-                Click="onLoadDeckButtonClick"/>
+                Click="OnLoadDeckButtonClick"/>
         <ScrollViewer VerticalScrollBarVisibility="Auto">
             <StackPanel>
                 <TextBlock x:Name="MainDeckHeader" Text="Main Deck (0)" Foreground="White" FontSize="16" FontWeight="Bold" Margin="5"/>

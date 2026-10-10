@@ -3,7 +3,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -37,7 +36,7 @@ namespace DuelBotStudio.Services
 
         }
 
-        public async Task<CardModel?> getCardByIdAsync(int cardId)
+        public async Task<CardModel?> GetCardByIdAsync(int cardId)
         {
             // Level 1: RAM Memory Check
             if (_memoryCache.TryGetValue(cardId, out var cachedCard))
@@ -70,7 +69,7 @@ namespace DuelBotStudio.Services
                 string jsonResponse = await _httpClient.GetStringAsync($"cardinfo.php?id={cardId}");
                 var apiResponse = JsonSerializer.Deserialize<YgoApiResponseDto>(jsonResponse, _jsonOptions);
 
-                var cardDto = apiResponse?.data?.FirstOrDefault();
+                var cardDto = apiResponse?.Data?.FirstOrDefault();
                 if (cardDto == null)
                 {
                     return null;
@@ -78,16 +77,16 @@ namespace DuelBotStudio.Services
 
                 var card = new CardModel
                 {
-                    id = cardDto.id,
-                    name = cardDto.name ?? string.Empty,
-                    description = cardDto.description ?? string.Empty,
-                    type = cardDto.type ?? string.Empty,
-                    attribute = cardDto.attribute ?? string.Empty,
-                    race = cardDto.race ?? string.Empty,
-                    atk = cardDto.atk,
-                    def = cardDto.def,
-                    level = cardDto.level,
-                    imageUrl = cardDto.cardImages?.FirstOrDefault()?.imageUrl ?? string.Empty
+                    Id = cardDto.Id,
+                    Name = cardDto.Name ?? string.Empty,
+                    Description = cardDto.Description ?? string.Empty,
+                    Type = cardDto.Type ?? string.Empty,
+                    Attribute = cardDto.Attribute ?? string.Empty,
+                    Race = cardDto.Race ?? string.Empty,
+                    Atk = cardDto.Atk,
+                    Def = cardDto.Def,
+                    Level = cardDto.Level,
+                    ImageUrl = cardDto.CardImages?.FirstOrDefault()?.ImageUrl ?? string.Empty
                 };
 
                 string jsonToSave = JsonSerializer.Serialize(card, _jsonOptions);
@@ -105,43 +104,43 @@ namespace DuelBotStudio.Services
         internal class YgoApiResponseDto
         {
             [JsonPropertyName("data")]
-            public List<YgoCardDto> data { get; set; } = new List<YgoCardDto>();
+            public List<YgoCardDto> Data { get; set; } = new List<YgoCardDto>();
         }
 
         internal class YgoCardDto
         {
             [JsonPropertyName("id")]
-            public int id { get; set; }
+            public int Id { get; set; }
             [JsonPropertyName("name")]
-            public string? name { get; set; }
+            public string? Name { get; set; }
             [JsonPropertyName("type")]
-            public string? type { get; set; }
+            public string? Type { get; set; }
             [JsonPropertyName("desc")]
-            public string? description { get; set; }
+            public string? Description { get; set; }
             [JsonPropertyName("atk")]
-            public int? atk { get; set; }
+            public int? Atk { get; set; }
             [JsonPropertyName("def")]
-            public int? def { get; set; }
+            public int? Def { get; set; }
             [JsonPropertyName("level")]
-            public int? level { get; set; }
+            public int? Level { get; set; }
 
             [JsonPropertyName("race")]
-            public string? race { get; set; }
+            public string? Race { get; set; }
 
             [JsonPropertyName("attribute")]
-            public string? attribute { get; set; }
+            public string? Attribute { get; set; }
 
             [JsonPropertyName("card_images")]
-            public List<YgoCardImageDto> cardImages { get; set; } = new List<YgoCardImageDto>();
+            public List<YgoCardImageDto> CardImages { get; set; } = new List<YgoCardImageDto>();
         }
 
         internal class YgoCardImageDto
         {
             [JsonPropertyName("image_url")]
-            public string? imageUrl { get; set; }
+            public string? ImageUrl { get; set; }
         }
 
-        public async Task<List<CardModel>> searchCardsByNameAsync(string query)
+        public async Task<List<CardModel>> SearchCardsByNameAsync(string query)
         {
             if (string.IsNullOrWhiteSpace(query) || query.Length < 3)
             {
@@ -150,20 +149,20 @@ namespace DuelBotStudio.Services
 
             string encodedQuery = Uri.EscapeDataString(query);
 
-            Task<string?> nameTask = fetchJsonSafeAsync($"cardinfo.php?fname={encodedQuery}");
-            Task<string?> descTask = fetchJsonSafeAsync($"cardinfo.php?desc={encodedQuery}");
+            Task<string?> nameTask = FetchJsonSafeAsync($"cardinfo.php?fname={encodedQuery}");
+            Task<string?> descTask = FetchJsonSafeAsync($"cardinfo.php?desc={encodedQuery}");
 
             await Task.WhenAll(nameTask, descTask);
 
-            List<CardModel> nameResults = parseCardsFromJson(nameTask.Result ?? string.Empty);
-            List<CardModel> descResults = parseCardsFromJson(descTask.Result ?? string.Empty);
+            List<CardModel> nameResults = ParseCardsFromJson(nameTask.Result ?? string.Empty);
+            List<CardModel> descResults = ParseCardsFromJson(descTask.Result ?? string.Empty);
 
             return nameResults
-                .UnionBy(descResults, card => card.id)
+                .UnionBy(descResults, card => card.Id)
                 .ToList();
         }
 
-        private async Task<string?> fetchJsonSafeAsync(string endpoint)
+        private async Task<string?> FetchJsonSafeAsync(string endpoint)
         {
             try
             {
@@ -175,7 +174,7 @@ namespace DuelBotStudio.Services
             }
         }
 
-        private List<CardModel> parseCardsFromJson(string? json)
+        private List<CardModel> ParseCardsFromJson(string? json)
         {
             if (string.IsNullOrWhiteSpace(json))
             {
@@ -185,18 +184,18 @@ namespace DuelBotStudio.Services
             try
             {
                 var apiResponse = JsonSerializer.Deserialize<YgoApiResponseDto>(json, _jsonOptions);
-                return apiResponse?.data?.Select(dto => new CardModel
+                return apiResponse?.Data?.Select(dto => new CardModel
                 {
-                    id = dto.id,
-                    name = dto.name ?? string.Empty,
-                    type = dto.type ?? string.Empty,
-                    description = dto.description ?? string.Empty,
-                    atk = dto.atk,
-                    def = dto.def,
-                    level = dto.level,
-                    race = dto.race ?? string.Empty,
-                    attribute = dto.attribute ?? string.Empty,
-                    imageUrl = dto.cardImages.FirstOrDefault()?.imageUrl ?? string.Empty
+                    Id = dto.Id,
+                    Name = dto.Name ?? string.Empty,
+                    Type = dto.Type ?? string.Empty,
+                    Description = dto.Description ?? string.Empty,
+                    Atk = dto.Atk,
+                    Def = dto.Def,
+                    Level = dto.Level,
+                    Race = dto.Race ?? string.Empty,
+                    Attribute = dto.Attribute ?? string.Empty,
+                    ImageUrl = dto.CardImages.FirstOrDefault()?.ImageUrl ?? string.Empty
                 }).ToList() ?? new List<CardModel>();
             }
             catch

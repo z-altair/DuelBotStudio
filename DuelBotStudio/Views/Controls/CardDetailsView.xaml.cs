@@ -41,7 +41,7 @@ namespace DuelBotStudio.Views.Controls
             SelectedCardStats.Text = string.Empty;
             SelectedCardDescription.Text = string.Empty;
 
-            var card = await _cardInfoService.getCardByIdAsync(cardId);
+            var card = await _cardInfoService.GetCardByIdAsync(cardId);
             if (_currentlySelectedCardId != cardId)
             {
                 return;
@@ -53,20 +53,20 @@ namespace DuelBotStudio.Views.Controls
                 return;
             }
 
-            var image = await CardImageCache.getCardImageAsync(cardId);
+            var image = await CardImageCache.GetCardImageAsync(cardId);
             if (_currentlySelectedCardId != cardId)
             {
                 return;
             }
 
             SelectedCardImage.Source = image;
-            SelectedCardName.Text = card.name;
-            SelectedCardType.Text = $"{card.type} / {card.race}";
-            SelectedCardStats.Text = card.atk.HasValue || card.def.HasValue
-                ? $"ATK: {card.atk?.ToString() ?? "?"} / DEF: {card.def?.ToString() ?? "?"}" +
-                  (card.level.HasValue ? $" | Lvl/Rank: {card.level}" : string.Empty)
+            SelectedCardName.Text = card.Name;
+            SelectedCardType.Text = $"{card.Type} / {card.Race}";
+            SelectedCardStats.Text = card.Atk.HasValue || card.Def.HasValue
+                ? $"ATK: {card.Atk?.ToString() ?? "?"} / DEF: {card.Def?.ToString() ?? "?"}" +
+                  (card.Level.HasValue ? $" | Lvl/Rank: {card.Level}" : string.Empty)
                 : string.Empty;
-            SelectedCardDescription.Text = card.description;
+            SelectedCardDescription.Text = card.Description;
         }
     }
 }
