@@ -1,0 +1,23 @@
+<UserControl x:Class="DuelBotStudio.Views.Controls.DeckViewerView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <DockPanel>
+        <Button Content="Load Deck (.ydk)"
+                DockPanel.Dock="Top"
+                Height="35"
+                Margin="0,0,0,10"
+                Click="onLoadDeckButtonClick"/>
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <TextBlock x:Name="MainDeckHeader" Text="Main Deck (0)" Foreground="White" FontSize="16" FontWeight="Bold" Margin="5"/>
+                <WrapPanel x:Name="MainDeckPanel" Margin="0,0,0,15"/>
+                <Separator Background="#3E3E42" Margin="0,5"/>
+                <TextBlock x:Name="ExtraDeckHeader" Text="Extra Deck (0)" Foreground="White" FontSize="16" FontWeight="Bold" Margin="5"/>
+                <WrapPanel x:Name="ExtraDeckPanel" Margin="0,0,0,15"/>
+                <Separator Background="#3E3E42" Margin="0,5"/>
+                <TextBlock x:Name="SideDeckHeader" Text="Side Deck (0)" Foreground="White" FontSize="16" FontWeight="Bold" Margin="5"/>
+                <WrapPanel x:Name="SideDeckPanel" Margin="0,0,0,15"/>
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+</UserControl>

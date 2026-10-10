@@ -1,0 +1,9 @@
+<UserControl x:Class="DuelBotStudio.Views.Controls.BotEditorView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <StackPanel Margin="10">
+        <TextBlock Text="Execution Rules" Foreground="White" FontSize="14" FontWeight="Bold" Margin="0,0,0,10"/>
+        <Button Content="+ Add Rule For Selected Card" Height="30" Margin="0,0,0,10"/>
+        <ListBox x:Name="BotRulesListBox" Height="400" Background="#1E1E1E" Foreground="White"/>
+    </StackPanel>
+</UserControl>
