@@ -18,10 +18,13 @@ namespace DuelBotStudio.Services
             _validator = validator ?? new BotProfileValidator();
         }
 
+        /// <summary>Returns profile validation errors without changing the profile.</summary>
+        public IReadOnlyList<string> Validate(BotProfile profile) => _validator.Validate(profile);
+
         /// <summary>Serializes a valid profile as indented, versioned JSON.</summary>
         public string Serialize(BotProfile profile)
         {
-            IReadOnlyList<string> errors = _validator.Validate(profile);
+            IReadOnlyList<string> errors = Validate(profile);
             if (errors.Count > 0)
             {
                 throw new InvalidDataException(string.Join(Environment.NewLine, errors));
@@ -36,7 +39,7 @@ namespace DuelBotStudio.Services
             ArgumentNullException.ThrowIfNull(json);
             BotProfile profile = JsonSerializer.Deserialize<BotProfile>(json, JsonOptions)
                 ?? throw new InvalidDataException("The bot profile JSON document is empty.");
-            IReadOnlyList<string> errors = _validator.Validate(profile);
+            IReadOnlyList<string> errors = Validate(profile);
             if (errors.Count > 0)
             {
                 throw new InvalidDataException(string.Join(Environment.NewLine, errors));

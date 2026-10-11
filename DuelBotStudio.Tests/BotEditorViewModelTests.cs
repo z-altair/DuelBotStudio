@@ -22,17 +22,17 @@ public sealed class BotEditorViewModelTests
         Directory.CreateDirectory(directory);
 
         viewModel.BeginNewRule();
-        viewModel.RuleName = "Summon from hand";
-        viewModel.DecisionPoint = BotDecisionPoint.MainPhaseCommand;
-        viewModel.Action = BotActionType.NormalSummon;
-        viewModel.Priority = "100";
-        viewModel.TargetCardId = "89631139";
-        viewModel.TargetCardName = "Blue-Eyes White Dragon";
-        viewModel.NextModeId = "defensive";
-        viewModel.AddCondition();
-        viewModel.Conditions[0].CardId = 89631139;
-        viewModel.Conditions[0].CardName = "Blue-Eyes White Dragon";
-        viewModel.Conditions[0].Zone = BotCardZone.Hand;
+        viewModel.Draft.Name = "Summon from hand";
+        viewModel.Draft.DecisionPoint = BotDecisionPoint.MainPhaseCommand;
+        viewModel.Draft.Action = BotActionType.NormalSummon;
+        viewModel.Draft.Priority = "100";
+        viewModel.Draft.TargetCardId = "89631139";
+        viewModel.Draft.TargetCardName = "Blue-Eyes White Dragon";
+        viewModel.Draft.NextModeId = "defensive";
+        viewModel.Draft.AddCondition();
+        viewModel.Draft.Conditions[0].CardId = 89631139;
+        viewModel.Draft.Conditions[0].CardName = "Blue-Eyes White Dragon";
+        viewModel.Draft.Conditions[0].Zone = BotCardZone.Hand;
 
         Assert.IsTrue(viewModel.ApplyRule());
 
@@ -116,9 +116,9 @@ public sealed class BotEditorViewModelTests
             new YgoCardInfoService(httpClient, Path.GetTempPath()),
             new BotProfileJsonService());
         viewModel.BeginNewRule();
-        viewModel.RuleName = "Transition";
-        viewModel.Action = BotActionType.EndPhase;
-        viewModel.NextModeId = "defensive";
+        viewModel.Draft.Name = "Transition";
+        viewModel.Draft.Action = BotActionType.EndPhase;
+        viewModel.Draft.NextModeId = "defensive";
         Assert.IsTrue(viewModel.ApplyRule());
         viewModel.SelectedMode = viewModel.Modes.Single(mode => mode.Id == "defensive");
 
@@ -152,19 +152,39 @@ public sealed class BotEditorViewModelTests
             new BotProfileJsonService());
 
         viewModel.BeginNewRule();
-        viewModel.RuleName = "Low priority";
-        viewModel.Action = BotActionType.EndPhase;
-        viewModel.Priority = "5";
+        viewModel.Draft.Name = "Low priority";
+        viewModel.Draft.Action = BotActionType.EndPhase;
+        viewModel.Draft.Priority = "5";
         Assert.IsTrue(viewModel.ApplyRule());
 
         viewModel.BeginNewRule();
-        viewModel.RuleName = "High priority";
-        viewModel.Action = BotActionType.EndPhase;
-        viewModel.Priority = "50";
+        viewModel.Draft.Name = "High priority";
+        viewModel.Draft.Action = BotActionType.EndPhase;
+        viewModel.Draft.Priority = "50";
         Assert.IsTrue(viewModel.ApplyRule());
 
         Assert.AreEqual("High priority", viewModel.Rules[0].Name);
         Assert.AreEqual("Low priority", viewModel.Rules[1].Name);
+    }
+
+    [TestMethod]
+    public void RuleDraft_DoesNotMutateSavedRuleUntilApplied()
+    {
+        using var httpClient = new HttpClient(new StubHttpMessageHandler());
+        var viewModel = new BotEditorViewModel(
+            new YgoCardInfoService(httpClient, Path.GetTempPath()),
+            new BotProfileJsonService());
+        viewModel.BeginNewRule();
+        viewModel.Draft.Name = "Original rule";
+        viewModel.Draft.Action = BotActionType.EndPhase;
+        Assert.IsTrue(viewModel.ApplyRule());
+
+        BotRule savedRule = viewModel.Rules[0];
+        viewModel.Draft.Name = "Edited rule";
+
+        Assert.AreEqual("Original rule", savedRule.Name);
+        Assert.IsTrue(viewModel.ApplyRule());
+        Assert.AreEqual("Edited rule", viewModel.Rules[0].Name);
     }
 
     private sealed class StubHttpMessageHandler : HttpMessageHandler

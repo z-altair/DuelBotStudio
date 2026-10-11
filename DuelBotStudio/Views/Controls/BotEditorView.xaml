@@ -88,20 +88,20 @@
                                 </Grid.RowDefinitions>
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="Name" Foreground="#DDDDDD" VerticalAlignment="Center"/>
                                 <TextBox Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="3"
-                                         Text="{Binding RuleName, UpdateSourceTrigger=PropertyChanged}" Margin="3"/>
+                                         Text="{Binding Draft.Name, UpdateSourceTrigger=PropertyChanged}" Margin="3"/>
                                 <TextBlock Grid.Row="1" Grid.Column="0" Text="Decision point" Foreground="#DDDDDD" VerticalAlignment="Center"/>
                                 <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding DecisionPoints}"
-                                          SelectedItem="{Binding DecisionPoint}" Margin="3"/>
+                                          SelectedItem="{Binding Draft.DecisionPoint}" Margin="3"/>
                                 <TextBlock Grid.Row="1" Grid.Column="2" Text="Action" Foreground="#DDDDDD" VerticalAlignment="Center"/>
                                 <ComboBox Grid.Row="1" Grid.Column="3" ItemsSource="{Binding Actions}"
-                                          SelectedItem="{Binding Action}" Margin="3"/>
+                                          SelectedItem="{Binding Draft.Action}" Margin="3"/>
                                 <TextBlock Grid.Row="2" Grid.Column="0" Text="Active mode" Foreground="#DDDDDD" VerticalAlignment="Center"/>
                                 <ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{Binding Modes}"
                                           DisplayMemberPath="Name" SelectedValuePath="Id"
-                                          SelectedValue="{Binding RuleModeId}" Margin="3"/>
+                                          SelectedValue="{Binding Draft.ModeId}" Margin="3"/>
                                 <TextBlock Grid.Row="2" Grid.Column="2" Text="Priority" Foreground="#DDDDDD" VerticalAlignment="Center"/>
                                 <TextBox Grid.Row="2" Grid.Column="3"
-                                         Text="{Binding Priority, UpdateSourceTrigger=PropertyChanged}" Margin="3"/>
+                                         Text="{Binding Draft.Priority, UpdateSourceTrigger=PropertyChanged}" Margin="3"/>
                             </Grid>
 
                             <Grid Margin="0,5,0,0">
@@ -112,14 +112,14 @@
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Grid.Column="0" Text="Target card ID" Foreground="#DDDDDD" VerticalAlignment="Center"/>
-                                <TextBox Grid.Column="1" Text="{Binding TargetCardId, UpdateSourceTrigger=PropertyChanged}" Margin="3"/>
+                                <TextBox Grid.Column="1" Text="{Binding Draft.TargetCardId, UpdateSourceTrigger=PropertyChanged}" Margin="3"/>
                                 <TextBlock Grid.Column="2" Text="Next mode (optional)" Foreground="#DDDDDD" VerticalAlignment="Center"/>
                                 <ComboBox Grid.Column="3" ItemsSource="{Binding Modes}"
                                           DisplayMemberPath="Name" SelectedValuePath="Id"
-                                          SelectedValue="{Binding NextModeId}" Margin="3"/>
+                                          SelectedValue="{Binding Draft.NextModeId}" Margin="3"/>
                             </Grid>
-                            <TextBlock Text="{Binding TargetCardName}" Foreground="#AAAAAA" Margin="143,0,0,4"/>
-                            <CheckBox Content="Rule enabled" IsChecked="{Binding RuleEnabled}"
+                            <TextBlock Text="{Binding Draft.TargetCardName}" Foreground="#AAAAAA" Margin="143,0,0,4"/>
+                            <CheckBox Content="Rule enabled" IsChecked="{Binding Draft.IsEnabled}"
                                       Foreground="#DDDDDD" Margin="0,2,0,0"/>
 
                             <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
@@ -162,7 +162,7 @@
                             </Grid.ColumnDefinitions>
                             <ComboBox Grid.Column="0" ItemsSource="{Binding Modes}" DisplayMemberPath="Name"
                                       SelectedItem="{Binding SelectedMode}" Margin="0,0,5,0"/>
-                            <TextBox Grid.Column="1" Text="{Binding ModeName, UpdateSourceTrigger=PropertyChanged}"
+                            <TextBox Grid.Column="1" Text="{Binding SelectedMode.Name, UpdateSourceTrigger=PropertyChanged}"
                                      VerticalContentAlignment="Center"/>
                         </Grid>
                     </Grid>
@@ -200,7 +200,7 @@
                         </Grid.RowDefinitions>
                         <TextBlock Grid.Row="0" Text="Conditions (all must match)" Foreground="White"
                                    FontWeight="Bold" Margin="0,0,0,5"/>
-                        <DataGrid Grid.Row="1" ItemsSource="{Binding Conditions}" SelectedItem="{Binding SelectedCondition}"
+                        <DataGrid Grid.Row="1" ItemsSource="{Binding Draft.Conditions}" SelectedItem="{Binding Draft.SelectedCondition}"
                                   AutoGenerateColumns="False" CanUserAddRows="False"
                                   Background="#1E1E1E" Foreground="#DDDDDD" RowBackground="#252526"
                                   AlternatingRowBackground="#2D2D30" HeadersVisibility="Column">

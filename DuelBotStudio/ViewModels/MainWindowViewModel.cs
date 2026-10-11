@@ -1,12 +1,10 @@
 using DuelBotStudio.Models;
 using DuelBotStudio.Services;
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
 
 namespace DuelBotStudio.ViewModels
 {
     /// <summary>Coordinates deck import and exposes the shared deck manager to the views.</summary>
-    public sealed class MainWindowViewModel : INotifyPropertyChanged
+    public sealed class MainWindowViewModel : ObservableObject
     {
         private readonly YdkParserService _parser;
         private readonly YdkWriterService _writer;
@@ -27,9 +25,6 @@ namespace DuelBotStudio.ViewModels
             _writer = writer ?? new YdkWriterService();
             DeckManager.DeckChanged += OnDeckChanged;
         }
-
-        /// <inheritdoc />
-        public event PropertyChangedEventHandler? PropertyChanged;
 
         /// <summary>Gets the manager for the active deck.</summary>
         public DeckManager DeckManager { get; }
@@ -92,7 +87,5 @@ namespace DuelBotStudio.ViewModels
             IsDirty = true;
         }
 
-        private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 }

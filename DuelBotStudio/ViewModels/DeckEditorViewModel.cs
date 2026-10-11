@@ -1,7 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Net.Http;
-using System.Runtime.CompilerServices;
 using System.Globalization;
 using DuelBotStudio.Models.Card;
 using DuelBotStudio.Models.Deck;
@@ -12,7 +11,7 @@ namespace DuelBotStudio.ViewModels
     /// <summary>
     /// Provides searchable card results and deck editing state to the WPF deck editor.
     /// </summary>
-    public sealed class DeckEditorViewModel : INotifyPropertyChanged
+    public sealed class DeckEditorViewModel : ObservableObject
     {
         private readonly YgoCardInfoService _cardInfoService;
         private readonly DeckManager _deckManager;
@@ -43,9 +42,6 @@ namespace DuelBotStudio.ViewModels
             Sections = Enum.GetValues<DeckSection>();
             RefreshValidation();
         }
-
-        /// <inheritdoc />
-        public event PropertyChangedEventHandler? PropertyChanged;
 
         /// <summary>Gets the available deck sections.</summary>
         public IReadOnlyList<DeckSection> Sections { get; }
@@ -262,19 +258,5 @@ namespace DuelBotStudio.ViewModels
             OnPropertyChanged(nameof(ValidationStatus));
         }
 
-        private bool SetProperty<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
-        {
-            if (EqualityComparer<T>.Default.Equals(field, value))
-            {
-                return false;
-            }
-
-            field = value;
-            OnPropertyChanged(propertyName);
-            return true;
-        }
-
-        private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 }

@@ -100,9 +100,11 @@ The visual flow-diagram editor and dynamic rule execution are future work. The c
 ## Architecture
 
 - `Models/`: card, deck, import-result, and bot profile/rule data types.
-- `Services/`: YDK parsing, deck editing and validation, card metadata, and image caching.
-- `ViewModels/`: workspace orchestration, card-search/editor state, and bot profile editing.
+- `Services/`: bot profile JSON persistence and validation, YDK parsing/export, deck editing, card metadata, and image caching.
+- `ViewModels/`: `BotEditorViewModel` coordinates profile modes, rules, dirty state, and persistence; `BotRuleDraftViewModel` owns the temporary rule-editing buffer; `DeckEditorViewModel` owns deck-specific editing state.
 - `Views/`: WPF windows and deck/bot editor controls.
 - `DuelBotStudio.Tests/`: parser, deck validation, bot profile schema/validation/persistence, editor state, YDK export, and cache tests.
+
+Rule edits are buffered separately from the saved rule list until **Apply rule** is selected. The profile coordinator owns ordering and mode references; the draft editor owns rule-field parsing and condition edits; the JSON service owns schema validation and file persistence. This keeps future rule-language and editor changes out of file-format code and deck-editor behavior.
 
 Public C# APIs are documented with XML comments. Generated XML documentation is emitted alongside the application assembly.

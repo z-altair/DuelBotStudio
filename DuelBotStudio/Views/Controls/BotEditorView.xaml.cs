@@ -20,9 +20,9 @@ namespace DuelBotStudio.Views.Controls
         }
 
         /// <summary>Connects card lookup and profile persistence services to the editor.</summary>
-        public void Initialize(YgoCardInfoService cardInfoService)
+        public void Initialize(YgoCardInfoService cardInfoService, BotProfileJsonService profileService)
         {
-            _viewModel = new BotEditorViewModel(cardInfoService, new BotProfileJsonService());
+            _viewModel = new BotEditorViewModel(cardInfoService, profileService);
             DataContext = _viewModel;
         }
 
@@ -144,10 +144,10 @@ namespace DuelBotStudio.Views.Controls
             _viewModel?.RemoveSelectedRule();
 
         private void OnAddConditionButtonClick(object sender, RoutedEventArgs e) =>
-            _viewModel?.AddCondition();
+            _viewModel?.Draft.AddCondition();
 
         private void OnRemoveConditionButtonClick(object sender, RoutedEventArgs e) =>
-            _viewModel?.RemoveSelectedCondition();
+            _viewModel?.Draft.RemoveSelectedCondition();
 
         private void OnAddModeButtonClick(object sender, RoutedEventArgs e) =>
             _viewModel?.AddMode();
