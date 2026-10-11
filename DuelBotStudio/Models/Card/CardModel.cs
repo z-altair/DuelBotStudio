@@ -1,6 +1,6 @@
 ﻿namespace DuelBotStudio.Models.Card
 {
-    /// <summary>Represents card data used by the deck editor and card details view.</summary>
+    /// <summary>Represents card data used by deck tools, card details, and bot rule references.</summary>
     public class CardModel
     {
         /// <summary>Gets or sets the card database identifier.</summary>

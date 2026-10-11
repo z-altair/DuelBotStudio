@@ -1,0 +1,812 @@
+using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Globalization;
+using System.IO;
+using System.Net.Http;
+using System.Runtime.CompilerServices;
+using System.Text.Json;
+using DuelBotStudio.Models.Bot;
+using DuelBotStudio.Models.Card;
+using DuelBotStudio.Services;
+
+namespace DuelBotStudio.ViewModels
+{
+    /// <summary>Coordinates bot profile editing, card lookup, validation, and JSON persistence.</summary>
+    public sealed class BotEditorViewModel : INotifyPropertyChanged
+    {
+        private readonly YgoCardInfoService _cardInfoService;
+        private readonly BotProfileJsonService _profileService;
+        private int _searchGeneration;
+        private bool _isLoading;
+        private bool _isDirty;
+        private string _botName;
+        private string _initialModeId;
+        private string _modeName = string.Empty;
+        private string _ruleName = string.Empty;
+        private string _priority = "0";
+        private string _targetCardId = string.Empty;
+        private string _targetCardName = string.Empty;
+        private string _searchQuery = string.Empty;
+        private string _statusMessage = string.Empty;
+        private bool _ruleEnabled = true;
+        private string? _filePath;
+        private string? _editingRuleId;
+        private bool _isRuleDraftActive;
+        private BotDecisionPoint _decisionPoint;
+        private BotActionType _action;
+        private string _ruleModeId;
+        private string? _nextModeId;
+        private BotMode? _selectedMode;
+        private BotRule? _selectedRule;
+        private BotCondition? _selectedCondition;
+        private CardModel? _selectedCard;
+
+        /// <summary>Creates the bot editor view model.</summary>
+        public BotEditorViewModel(YgoCardInfoService cardInfoService, BotProfileJsonService profileService)
+        {
+            _cardInfoService = cardInfoService ?? throw new ArgumentNullException(nameof(cardInfoService));
+            _profileService = profileService ?? throw new ArgumentNullException(nameof(profileService));
+            var defaultProfile = new BotProfile();
+            _botName = defaultProfile.BotName;
+            _initialModeId = defaultProfile.InitialModeId;
+            _ruleModeId = defaultProfile.InitialModeId;
+
+            foreach (BotMode mode in defaultProfile.Modes)
+            {
+                AddModeToCollection(mode);
+            }
+
+            ResetConditionCollection();
+            Modes.CollectionChanged += (_, _) => MarkDirty();
+            Rules.CollectionChanged += (_, _) => MarkDirty();
+        }
+
+        /// <inheritdoc />
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        /// <summary>Gets the available decision points.</summary>
+        public IReadOnlyList<BotDecisionPoint> DecisionPoints { get; } = Enum.GetValues<BotDecisionPoint>();
+
+        /// <summary>Gets the available rule actions.</summary>
+        public IReadOnlyList<BotActionType> Actions { get; } = Enum.GetValues<BotActionType>();
+
+        /// <summary>Gets the available condition types.</summary>
+        public IReadOnlyList<BotConditionType> ConditionTypes { get; } = Enum.GetValues<BotConditionType>();
+
+        /// <summary>Gets the available card zones.</summary>
+        public IReadOnlyList<BotCardZone> CardZones { get; } = Enum.GetValues<BotCardZone>();
+
+        /// <summary>Gets the editable profile modes.</summary>
+        public ObservableCollection<BotMode> Modes { get; } = new();
+
+        /// <summary>Gets the profile rules.</summary>
+        public ObservableCollection<BotRule> Rules { get; } = new();
+
+        /// <summary>Gets the conditions for the rule currently being edited.</summary>
+        public ObservableCollection<BotCondition> Conditions { get; } = new();
+
+        /// <summary>Gets the current card search results.</summary>
+        public ObservableCollection<CardModel> SearchResults { get; } = new();
+
+        /// <summary>Gets or sets the profile name.</summary>
+        public string BotName
+        {
+            get => _botName;
+            set
+            {
+                if (SetProperty(ref _botName, value))
+                {
+                    MarkDirty();
+                }
+            }
+        }
+
+        /// <summary>Gets or sets the ID of the starting mode.</summary>
+        public string InitialModeId
+        {
+            get => _initialModeId;
+            set
+            {
+                if (SetProperty(ref _initialModeId, value))
+                {
+                    MarkDirty();
+                }
+            }
+        }
+
+        /// <summary>Gets or sets the selected mode.</summary>
+        public BotMode? SelectedMode
+        {
+            get => _selectedMode;
+            set
+            {
+                if (SetProperty(ref _selectedMode, value))
+                {
+                    OnPropertyChanged(nameof(ModeName));
+                }
+            }
+        }
+
+        /// <summary>Gets or sets the selected mode's display name.</summary>
+        public string ModeName
+        {
+            get => SelectedMode?.Name ?? _modeName;
+            set
+            {
+                if (SelectedMode is null)
+                {
+                    SetProperty(ref _modeName, value);
+                    return;
+                }
+
+                if (SelectedMode.Name != value)
+                {
+                    SelectedMode.Name = value;
+                    MarkDirty();
+                }
+            }
+        }
+
+        /// <summary>Gets or sets the selected rule.</summary>
+        public BotRule? SelectedRule
+        {
+            get => _selectedRule;
+            set
+            {
+                if (SetProperty(ref _selectedRule, value))
+                {
+                    if (value is null)
+                    {
+                        return;
+                    }
+
+                    LoadRuleDraft(value);
+                }
+            }
+        }
+
+        /// <summary>Gets or sets the selected card condition.</summary>
+        public BotCondition? SelectedCondition
+        {
+            get => _selectedCondition;
+            set => SetProperty(ref _selectedCondition, value);
+        }
+
+        /// <summary>Gets or sets the profile rule name being edited.</summary>
+        public string RuleName
+        {
+            get => _ruleName;
+            set => SetDraftProperty(ref _ruleName, value);
+        }
+
+        /// <summary>Gets or sets the decision point for the rule being edited.</summary>
+        public BotDecisionPoint DecisionPoint
+        {
+            get => _decisionPoint;
+            set => SetDraftProperty(ref _decisionPoint, value);
+        }
+
+        /// <summary>Gets or sets the action for the rule being edited.</summary>
+        public BotActionType Action
+        {
+            get => _action;
+            set => SetDraftProperty(ref _action, value);
+        }
+
+        /// <summary>Gets or sets the priority text for the rule being edited.</summary>
+        public string Priority
+        {
+            get => _priority;
+            set => SetDraftProperty(ref _priority, value);
+        }
+
+        /// <summary>Gets or sets the active mode ID for the rule being edited.</summary>
+        public string RuleModeId
+        {
+            get => _ruleModeId;
+            set => SetDraftProperty(ref _ruleModeId, value);
+        }
+
+        /// <summary>Gets or sets the optional next mode ID for the rule being edited.</summary>
+        public string? NextModeId
+        {
+            get => _nextModeId;
+            set => SetDraftProperty(ref _nextModeId, value);
+        }
+
+        /// <summary>Gets or sets whether the rule being edited is enabled.</summary>
+        public bool RuleEnabled
+        {
+            get => _ruleEnabled;
+            set => SetDraftProperty(ref _ruleEnabled, value);
+        }
+
+        /// <summary>Gets or sets the optional target card ID for the rule being edited.</summary>
+        public string TargetCardId
+        {
+            get => _targetCardId;
+            set => SetDraftProperty(ref _targetCardId, value);
+        }
+
+        /// <summary>Gets or sets the target card display name.</summary>
+        public string TargetCardName
+        {
+            get => _targetCardName;
+            set => SetDraftProperty(ref _targetCardName, value);
+        }
+
+        /// <summary>Gets or sets the current card search query.</summary>
+        public string SearchQuery
+        {
+            get => _searchQuery;
+            set => SetProperty(ref _searchQuery, value);
+        }
+
+        /// <summary>Gets or sets the selected card search result.</summary>
+        public CardModel? SelectedCard
+        {
+            get => _selectedCard;
+            set => SetProperty(ref _selectedCard, value);
+        }
+
+        /// <summary>Gets the path of the loaded or last-saved profile.</summary>
+        public string? FilePath
+        {
+            get => _filePath;
+            private set => SetProperty(ref _filePath, value);
+        }
+
+        /// <summary>Gets the user-facing status or error message.</summary>
+        public string StatusMessage
+        {
+            get => _statusMessage;
+            private set => SetProperty(ref _statusMessage, value);
+        }
+
+        /// <summary>Gets validation errors for the current profile.</summary>
+        public IReadOnlyList<string> ValidationErrors { get; private set; } = Array.Empty<string>();
+
+        /// <summary>Gets whether profile changes have not yet been saved.</summary>
+        public bool IsDirty
+        {
+            get => _isDirty;
+            private set => SetProperty(ref _isDirty, value);
+        }
+
+        /// <summary>Searches for cards to reference by their stable card IDs.</summary>
+        public async Task SearchCardsAsync()
+        {
+            int generation = ++_searchGeneration;
+            if (string.IsNullOrWhiteSpace(SearchQuery) || SearchQuery.Trim().Length < 3)
+            {
+                SearchResults.Clear();
+                SelectedCard = null;
+                StatusMessage = "Enter at least three characters to search.";
+                return;
+            }
+
+            StatusMessage = "Searching...";
+            SearchResults.Clear();
+            SelectedCard = null;
+            try
+            {
+                List<CardModel> cards = await _cardInfoService.SearchCardsByNameAsync(SearchQuery);
+                if (generation != _searchGeneration)
+                {
+                    return;
+                }
+
+                foreach (CardModel card in cards)
+                {
+                    SearchResults.Add(card);
+                }
+
+                StatusMessage = cards.Count == 0
+                    ? "No cards matched the search."
+                    : $"{cards.Count} card(s) found. Select one to use its ID.";
+            }
+            catch (HttpRequestException exception)
+            {
+                if (generation == _searchGeneration)
+                {
+                    StatusMessage = $"Card search failed: {exception.Message}";
+                }
+            }
+            catch (IOException exception)
+            {
+                if (generation == _searchGeneration)
+                {
+                    StatusMessage = $"Card cache could not be accessed: {exception.Message}";
+                }
+            }
+            catch (UnauthorizedAccessException exception)
+            {
+                if (generation == _searchGeneration)
+                {
+                    StatusMessage = $"Card cache access was denied: {exception.Message}";
+                }
+            }
+            catch (JsonException exception)
+            {
+                if (generation == _searchGeneration)
+                {
+                    StatusMessage = $"Card data could not be read: {exception.Message}";
+                }
+            }
+        }
+
+        /// <summary>Begins a new rule draft.</summary>
+        public void BeginNewRule()
+        {
+            _isLoading = true;
+            _editingRuleId = null;
+            _isRuleDraftActive = false;
+            SelectedRule = null;
+            RuleName = "New rule";
+            DecisionPoint = BotDecisionPoint.MainPhaseCommand;
+            Action = BotActionType.NormalSummon;
+            Priority = "0";
+            RuleModeId = InitialModeId;
+            NextModeId = null;
+            RuleEnabled = true;
+            TargetCardId = string.Empty;
+            TargetCardName = string.Empty;
+            ResetConditionCollection();
+            SelectedCondition = null;
+            _isLoading = false;
+            StatusMessage = "Enter the rule details, then apply the rule.";
+        }
+
+        /// <summary>Adds a default card-in-zone predicate to the current rule draft.</summary>
+        public void AddCondition()
+        {
+            var condition = new BotCondition
+            {
+                Type = BotConditionType.CardInZone,
+                Zone = BotCardZone.Hand
+            };
+            Conditions.Add(condition);
+            SelectedCondition = condition;
+            _isRuleDraftActive = true;
+            MarkDirty();
+        }
+
+        /// <summary>Removes the selected condition from the current rule draft.</summary>
+        public void RemoveSelectedCondition()
+        {
+            if (SelectedCondition is null)
+            {
+                return;
+            }
+
+            Conditions.Remove(SelectedCondition);
+            SelectedCondition = null;
+            _isRuleDraftActive = true;
+            MarkDirty();
+        }
+
+        /// <summary>Creates a new mode for a distinct strategy such as a defensive plan.</summary>
+        public void AddMode()
+        {
+            var mode = new BotMode
+            {
+                Id = $"mode-{Guid.NewGuid():N}",
+                Name = "New mode"
+            };
+            AddModeToCollection(mode);
+            SelectedMode = mode;
+            MarkDirty();
+        }
+
+        /// <summary>Removes the selected mode when no profile reference depends on it.</summary>
+        public void RemoveSelectedMode()
+        {
+            if (SelectedMode is null)
+            {
+                return;
+            }
+
+            BotMode selected = SelectedMode;
+            if (Modes.Count <= 1 ||
+                InitialModeId == selected.Id ||
+                Rules.Any(rule => rule.ModeId == selected.Id || rule.NextModeId == selected.Id) ||
+                (_isRuleDraftActive && (RuleModeId == selected.Id || NextModeId == selected.Id)))
+            {
+                StatusMessage = "This mode is the initial mode or is referenced by a rule; update those references first.";
+                return;
+            }
+
+            Modes.Remove(selected);
+            selected.PropertyChanged -= OnModeChanged;
+            SelectedMode = Modes.FirstOrDefault();
+            MarkDirty();
+            StatusMessage = "Mode removed.";
+        }
+
+        /// <summary>Applies the selected card to the action target of the current rule draft.</summary>
+        public void UseSelectedCardAsTarget()
+        {
+            if (SelectedCard is null)
+            {
+                StatusMessage = "Select a card from the search results first.";
+                return;
+            }
+
+            TargetCardId = SelectedCard.Id.ToString(CultureInfo.InvariantCulture);
+            TargetCardName = SelectedCard.Name;
+            _isRuleDraftActive = true;
+            StatusMessage = $"Action target set to {SelectedCard.Name} ({SelectedCard.Id}).";
+        }
+
+        /// <summary>Applies the selected card to the selected card-specific condition.</summary>
+        public void UseSelectedCardInCondition()
+        {
+            if (SelectedCard is null)
+            {
+                StatusMessage = "Select a card from the search results first.";
+                return;
+            }
+
+            if (SelectedCondition is null)
+            {
+                AddCondition();
+            }
+
+            if (SelectedCondition is not null)
+            {
+                SelectedCondition.CardId = SelectedCard.Id;
+                SelectedCondition.CardName = SelectedCard.Name;
+                _isRuleDraftActive = true;
+                StatusMessage = $"Condition card set to {SelectedCard.Name} ({SelectedCard.Id}).";
+            }
+        }
+
+        /// <summary>Validates and applies the current rule draft to the profile.</summary>
+        public bool ApplyRule()
+        {
+            if (!int.TryParse(Priority, NumberStyles.Integer, CultureInfo.InvariantCulture, out int priority))
+            {
+                StatusMessage = "Priority must be a whole number.";
+                return false;
+            }
+
+            int? targetCardId = null;
+            if (!string.IsNullOrWhiteSpace(TargetCardId))
+            {
+                if (!int.TryParse(TargetCardId, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsedId) ||
+                    parsedId <= 0)
+                {
+                    StatusMessage = "Target card ID must be a positive whole number.";
+                    return false;
+                }
+
+                targetCardId = parsedId;
+            }
+
+            var rule = new BotRule
+            {
+                Id = _editingRuleId ?? Guid.NewGuid().ToString("N"),
+                Name = RuleName,
+                ModeId = RuleModeId,
+                DecisionPoint = DecisionPoint,
+                Action = Action,
+                Priority = priority,
+                TargetCardId = targetCardId,
+                TargetCardName = TargetCardName,
+                NextModeId = string.IsNullOrWhiteSpace(NextModeId) ? null : NextModeId,
+                IsEnabled = RuleEnabled,
+                Conditions = Conditions.Select(CloneCondition).ToList()
+            };
+
+            BotProfile candidate = BuildProfile();
+            int existingIndex = candidate.Rules.FindIndex(existing => existing.Id == rule.Id);
+            if (existingIndex >= 0)
+            {
+                candidate.Rules[existingIndex] = rule;
+            }
+            else
+            {
+                candidate.Rules.Add(rule);
+            }
+
+            ValidationErrors = new BotProfileValidator().Validate(candidate);
+            OnPropertyChanged(nameof(ValidationErrors));
+            if (ValidationErrors.Count > 0)
+            {
+                StatusMessage = "The rule was not applied. Correct the validation errors below.";
+                return false;
+            }
+
+            if (existingIndex >= 0)
+            {
+                Rules[existingIndex] = rule;
+            }
+            else
+            {
+                Rules.Add(rule);
+            }
+
+            SortRulesByPriority();
+            SelectedRule = rule;
+            _isRuleDraftActive = true;
+            MarkDirty();
+            StatusMessage = "Rule applied. Save the profile to write the JSON file.";
+            return true;
+        }
+
+        /// <summary>Deletes the selected rule from the profile.</summary>
+        public void RemoveSelectedRule()
+        {
+            if (SelectedRule is null)
+            {
+                return;
+            }
+
+            Rules.Remove(SelectedRule);
+            SelectedRule = null;
+            _editingRuleId = null;
+            _isRuleDraftActive = false;
+            BeginNewRule();
+            _isRuleDraftActive = false;
+            MarkDirty();
+            StatusMessage = "Rule removed.";
+        }
+
+        /// <summary>Writes the current profile to a JSON file.</summary>
+        public async Task SaveProfileAsync(string filePath, CancellationToken cancellationToken = default)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
+            if (_isRuleDraftActive && !ApplyRule())
+            {
+                throw new InvalidDataException(StatusMessage);
+            }
+
+            BotProfile profile = BuildProfile();
+            ValidationErrors = new BotProfileValidator().Validate(profile);
+            OnPropertyChanged(nameof(ValidationErrors));
+            if (ValidationErrors.Count > 0)
+            {
+                throw new InvalidDataException(string.Join(Environment.NewLine, ValidationErrors));
+            }
+
+            await _profileService.WriteFileAsync(profile, filePath, cancellationToken);
+            FilePath = filePath;
+            IsDirty = false;
+            StatusMessage = $"Bot profile saved to {filePath}.";
+        }
+
+        /// <summary>Loads a valid profile, preserving the current profile on failure.</summary>
+        public async Task LoadProfileAsync(string filePath, CancellationToken cancellationToken = default)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
+            BotProfile profile = await _profileService.ReadFileAsync(filePath, cancellationToken);
+            LoadProfile(profile);
+            FilePath = filePath;
+            IsDirty = false;
+            StatusMessage = $"Bot profile loaded from {filePath}.";
+        }
+
+        /// <summary>Displays a file operation error in the editor.</summary>
+        public void ReportFileError(string message) =>
+            StatusMessage = $"Bot profile file operation failed: {message}";
+
+        private void LoadProfile(BotProfile profile)
+        {
+            _isLoading = true;
+            BotName = profile.BotName;
+            InitialModeId = profile.InitialModeId;
+            foreach (BotMode mode in Modes)
+            {
+                mode.PropertyChanged -= OnModeChanged;
+            }
+
+            SelectedMode = null;
+            Modes.Clear();
+            foreach (BotMode mode in profile.Modes)
+            {
+                AddModeToCollection(new BotMode { Id = mode.Id, Name = mode.Name });
+            }
+            SelectedMode = Modes.FirstOrDefault();
+
+            Rules.Clear();
+            foreach (BotRule rule in profile.Rules)
+            {
+                Rules.Add(CloneRule(rule));
+            }
+            SortRulesByPriority();
+
+            _isRuleDraftActive = false;
+            SelectedRule = null;
+            BeginNewRule();
+            _isRuleDraftActive = false;
+            ValidationErrors = Array.Empty<string>();
+            OnPropertyChanged(nameof(ValidationErrors));
+            _isLoading = false;
+        }
+
+        private void LoadRuleDraft(BotRule rule)
+        {
+            _isLoading = true;
+            _editingRuleId = rule.Id;
+            _isRuleDraftActive = true;
+            _ruleName = rule.Name;
+            _decisionPoint = rule.DecisionPoint;
+            _action = rule.Action;
+            _priority = rule.Priority.ToString(CultureInfo.InvariantCulture);
+            _ruleModeId = rule.ModeId;
+            _nextModeId = rule.NextModeId;
+            _ruleEnabled = rule.IsEnabled;
+            _targetCardId = rule.TargetCardId?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
+            _targetCardName = rule.TargetCardName;
+            OnPropertyChanged(nameof(RuleName));
+            OnPropertyChanged(nameof(DecisionPoint));
+            OnPropertyChanged(nameof(Action));
+            OnPropertyChanged(nameof(Priority));
+            OnPropertyChanged(nameof(RuleModeId));
+            OnPropertyChanged(nameof(NextModeId));
+            OnPropertyChanged(nameof(RuleEnabled));
+            OnPropertyChanged(nameof(TargetCardId));
+            OnPropertyChanged(nameof(TargetCardName));
+            ResetConditionCollection(rule.Conditions);
+            _isLoading = false;
+        }
+
+        private BotProfile BuildProfile() => new()
+        {
+            SchemaVersion = BotProfile.CurrentSchemaVersion,
+            BotName = BotName,
+            InitialModeId = InitialModeId,
+            Modes = Modes.Select(mode => new BotMode { Id = mode.Id, Name = mode.Name }).ToList(),
+            Rules = Rules.Select(CloneRule).ToList()
+        };
+
+        private void AddModeToCollection(BotMode mode)
+        {
+            mode.PropertyChanged += OnModeChanged;
+            Modes.Add(mode);
+        }
+
+        private void OnModeChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            MarkDirty();
+            OnPropertyChanged(nameof(Modes));
+            OnPropertyChanged(nameof(ModeName));
+        }
+
+        private void SortRulesByPriority()
+        {
+            BotRule[] sortedRules = Rules
+                .OrderByDescending(rule => rule.Priority)
+                .ToArray();
+
+            for (int targetIndex = 0; targetIndex < sortedRules.Length; targetIndex++)
+            {
+                int currentIndex = Rules.IndexOf(sortedRules[targetIndex]);
+                if (currentIndex != targetIndex)
+                {
+                    Rules.Move(currentIndex, targetIndex);
+                }
+            }
+        }
+
+        private void ResetConditionCollection(IEnumerable<BotCondition>? conditions = null)
+        {
+            Conditions.CollectionChanged -= OnConditionsCollectionChanged;
+            foreach (BotCondition condition in Conditions)
+            {
+                condition.PropertyChanged -= OnConditionChanged;
+            }
+
+            Conditions.Clear();
+            if (conditions is not null)
+            {
+                foreach (BotCondition condition in conditions)
+                {
+                    BotCondition clone = CloneCondition(condition);
+                    Conditions.Add(clone);
+                }
+            }
+
+            foreach (BotCondition condition in Conditions)
+            {
+                condition.PropertyChanged += OnConditionChanged;
+            }
+
+            Conditions.CollectionChanged += OnConditionsCollectionChanged;
+        }
+
+        private void OnConditionsCollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        {
+            if (e.OldItems is not null)
+            {
+                foreach (BotCondition condition in e.OldItems)
+                {
+                    condition.PropertyChanged -= OnConditionChanged;
+                }
+            }
+
+            if (e.NewItems is not null)
+            {
+                foreach (BotCondition condition in e.NewItems)
+                {
+                    condition.PropertyChanged += OnConditionChanged;
+                }
+            }
+
+            if (!_isLoading)
+            {
+                _isRuleDraftActive = true;
+                MarkDirty();
+            }
+        }
+
+        private void OnConditionChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (!_isLoading)
+            {
+                _isRuleDraftActive = true;
+                MarkDirty();
+            }
+        }
+
+        private void SetDraftProperty<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
+        {
+            if (SetProperty(ref field, value, propertyName) && !_isLoading)
+            {
+                _isRuleDraftActive = true;
+                MarkDirty();
+            }
+        }
+
+        private void MarkDirty()
+        {
+            if (_isLoading)
+            {
+                return;
+            }
+
+            IsDirty = true;
+            ValidationErrors = Array.Empty<string>();
+            OnPropertyChanged(nameof(ValidationErrors));
+        }
+
+        private static BotCondition CloneCondition(BotCondition condition) => new()
+        {
+            Type = condition.Type,
+            CardId = condition.CardId,
+            CardName = condition.CardName,
+            Zone = condition.Zone,
+            MinimumCount = condition.MinimumCount
+        };
+
+        private static BotRule CloneRule(BotRule rule) => new()
+        {
+            Id = rule.Id,
+            Name = rule.Name,
+            ModeId = rule.ModeId,
+            DecisionPoint = rule.DecisionPoint,
+            Conditions = rule.Conditions.Select(CloneCondition).ToList(),
+            Action = rule.Action,
+            TargetCardId = rule.TargetCardId,
+            TargetCardName = rule.TargetCardName,
+            Priority = rule.Priority,
+            NextModeId = rule.NextModeId,
+            IsEnabled = rule.IsEnabled
+        };
+
+        private bool SetProperty<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
+        {
+            if (EqualityComparer<T>.Default.Equals(field, value))
+            {
+                return false;
+            }
+
+            field = value;
+            OnPropertyChanged(propertyName);
+            return true;
+        }
+
+        private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
+}

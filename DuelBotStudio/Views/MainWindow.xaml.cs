@@ -3,6 +3,7 @@ using System.Net.Http;
 using System.Text.Json;
 using System.ComponentModel;
 using System.Windows;
+using System.Windows.Threading;
 using DuelBotStudio.Services;
 using DuelBotStudio.ViewModels;
 using Microsoft.Win32;
@@ -13,6 +14,7 @@ namespace DuelBotStudio
     {
         private readonly MainWindowViewModel _viewModel;
         private bool _closeAfterPrompt;
+        private bool _closePromptInProgress;
 
         /// <summary>Creates the main application window and connects its views.</summary>
         public MainWindow()
@@ -27,6 +29,7 @@ namespace DuelBotStudio
             CardDetailsControl.Initialize(cardInfoService, cardImageCache);
             DeckViewerControl.Initialize(_viewModel.DeckManager, cardImageCache);
             DeckEditorControl.Initialize(cardInfoService, _viewModel.DeckManager);
+            BotEditorControl.Initialize(cardInfoService);
 
             DeckViewerControl.LoadDeckRequested += OnLoadDeckButtonClick;
             DeckViewerControl.SaveDeckRequested += OnSaveDeckButtonClick;
@@ -151,17 +154,51 @@ namespace DuelBotStudio
 
         private async void OnWindowClosing(object? sender, CancelEventArgs e)
         {
-            if (_closeAfterPrompt || !_viewModel.IsDirty)
+            if (_closeAfterPrompt || (!_viewModel.IsDirty && !BotEditorControl.IsDirty))
             {
                 return;
             }
 
             e.Cancel = true;
-            if (await ConfirmSaveOrDiscardAsync())
+            if (_closePromptInProgress)
             {
-                _closeAfterPrompt = true;
-                Close();
+                return;
             }
+
+            _closePromptInProgress = true;
+            try
+            {
+                if (await ConfirmSaveOrDiscardAsync() && await ConfirmBotSaveOrDiscardAsync())
+                {
+                    _closeAfterPrompt = true;
+                    _ = Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(Close));
+                }
+            }
+            finally
+            {
+                _closePromptInProgress = false;
+            }
+        }
+
+        private async Task<bool> ConfirmBotSaveOrDiscardAsync()
+        {
+            if (!BotEditorControl.IsDirty)
+            {
+                return true;
+            }
+
+            MessageBoxResult choice = MessageBox.Show(
+                "The current bot profile has unsaved changes. Save them before closing?",
+                "Unsaved bot profile changes",
+                MessageBoxButton.YesNoCancel,
+                MessageBoxImage.Warning);
+
+            return choice switch
+            {
+                MessageBoxResult.Yes => await BotEditorControl.SaveFromDialogAsync(),
+                MessageBoxResult.No => true,
+                _ => false
+            };
         }
 
         private static void ShowLoadError(string message)

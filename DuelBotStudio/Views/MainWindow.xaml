@@ -5,27 +5,30 @@
         Title="{Binding WindowTitle}" Height="720" Width="1280"
         Background="#1E1E1E"
         Closing="OnWindowClosing">
-    <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="260"/>
-            <ColumnDefinition Width="5"/>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="5"/>
-            <ColumnDefinition Width="380"/>
-        </Grid.ColumnDefinitions>
+    <TabControl Background="#1E1E1E" BorderThickness="0">
+        <TabItem Header="Deck tools">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="260"/>
+                    <ColumnDefinition Width="5"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="5"/>
+                    <ColumnDefinition Width="380"/>
+                </Grid.ColumnDefinitions>
 
-        <controls:CardDetailsView x:Name="CardDetailsControl" Grid.Column="0" Margin="5"/>
+                <controls:CardDetailsView x:Name="CardDetailsControl" Grid.Column="0" Margin="5"/>
 
-        <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch" Background="#333333"/>
+                <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch" Background="#333333"/>
 
-        <controls:DeckViewerView x:Name="DeckViewerControl" Grid.Column="2" Margin="5"/>
+                <controls:DeckViewerView x:Name="DeckViewerControl" Grid.Column="2" Margin="5"/>
 
-        <GridSplitter Grid.Column="3" Width="5" HorizontalAlignment="Stretch" Background="#333333"/>
+                <GridSplitter Grid.Column="3" Width="5" HorizontalAlignment="Stretch" Background="#333333"/>
 
-        <TabControl Grid.Column="4" Background="#252526" BorderThickness="0" Margin="5">
-            <TabItem Header="Deck Editor">
-                <controls:DeckEditorView x:Name="DeckEditorControl"/>
-            </TabItem>
-        </TabControl>
-    </Grid>
+                <controls:DeckEditorView x:Name="DeckEditorControl" Grid.Column="4" Margin="5"/>
+            </Grid>
+        </TabItem>
+        <TabItem Header="Bot editor">
+            <controls:BotEditorView x:Name="BotEditorControl"/>
+        </TabItem>
+    </TabControl>
 </Window>
