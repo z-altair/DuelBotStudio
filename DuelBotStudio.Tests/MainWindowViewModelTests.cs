@@ -26,16 +26,49 @@ public sealed class MainWindowViewModelTests
                 new YdkParserService());
             viewModel.DeckManager.AddCard(new CardModel { Id = 99 }, DeckSection.Main);
             var originalDeck = viewModel.DeckManager.CurrentDeck;
+            Assert.IsTrue(viewModel.IsDirty);
 
             var errors = await viewModel.LoadDeckAsync(path);
 
             Assert.IsNotEmpty(errors);
             Assert.AreSame(originalDeck, viewModel.DeckManager.CurrentDeck);
             Assert.AreEqual(99, viewModel.DeckManager.CurrentDeck.MainDeck[0].Id);
+            Assert.IsTrue(viewModel.IsDirty);
         }
         finally
         {
             File.Delete(path);
+        }
+    }
+
+    [TestMethod]
+    public async Task SaveDeckAsync_WritesDeckAndClearsDirtyState()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), $"DuelBotStudio.Save-{Guid.NewGuid():N}");
+        string filePath = Path.Combine(directory, "deck.ydk");
+        using var httpClient = new HttpClient(new StubHttpMessageHandler(
+            _ => new HttpResponseMessage(HttpStatusCode.ServiceUnavailable)));
+        var viewModel = new MainWindowViewModel(
+            new YgoCardInfoService(httpClient, Path.Combine(directory, "cache")),
+            new YdkParserService());
+        viewModel.DeckManager.AddCard(new CardModel { Id = 42 }, DeckSection.Main);
+
+        try
+        {
+            await viewModel.SaveDeckAsync(filePath);
+
+            Assert.IsFalse(viewModel.IsDirty);
+            Assert.AreEqual(filePath, viewModel.DeckManager.CurrentDeck.FilePath);
+            var parsed = new YdkParserService().ParseFile(filePath);
+            Assert.IsFalse(parsed.HasErrors);
+            CollectionAssert.AreEqual(new[] { 42 }, parsed.MainDeckIds);
+        }
+        finally
+        {
+            if (Directory.Exists(directory))
+            {
+                Directory.Delete(directory, true);
+            }
         }
     }
 

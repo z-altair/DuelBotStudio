@@ -13,6 +13,7 @@ namespace DuelBotStudio.Services
     {
         private readonly YgoCardInfoService _cardInfoService;
         private DeckRules _rules;
+        private int _deckVersion;
 
         /// <summary>Creates a manager with default structural rules when none are supplied.</summary>
         /// <param name="cardInfoService">Service used to resolve imported card IDs.</param>
@@ -49,10 +50,11 @@ namespace DuelBotStudio.Services
         /// after every lookup completes successfully.
         /// </summary>
         /// <param name="parseResult">A parser result without errors.</param>
+        /// <param name="sourceFilePath">Optional path of the imported deck file.</param>
         /// <exception cref="ArgumentException"><paramref name="parseResult"/> contains errors.</exception>
         /// <exception cref="HttpRequestException">A card lookup fails.</exception>
         /// <exception cref="InvalidDataException">A parsed card ID is not present in the database.</exception>
-        public async Task LoadFromParseResultAsync(YdkParseResult parseResult)
+        public async Task LoadFromParseResultAsync(YdkParseResult parseResult, string? sourceFilePath = null)
         {
             ArgumentNullException.ThrowIfNull(parseResult);
             if (parseResult.HasErrors)
@@ -60,23 +62,60 @@ namespace DuelBotStudio.Services
                 throw new ArgumentException("Cannot load a deck with parser errors.", nameof(parseResult));
             }
 
+            int initialVersion = _deckVersion;
             var candidateDeck = new DeckModel();
+            int[] cardIds = parseResult.MainDeckIds
+                .Concat(parseResult.ExtraDeckIds)
+                .Concat(parseResult.SideDeckIds)
+                .Distinct()
+                .ToArray();
+            var resolvedCards = new System.Collections.Concurrent.ConcurrentDictionary<int, CardModel>();
+            await Parallel.ForEachAsync(
+                cardIds,
+                new ParallelOptions { MaxDegreeOfParallelism = 8 },
+                async (id, _) =>
+                {
+                    CardModel? card = await _cardInfoService.GetCardByIdAsync(id);
+                    if (card is null)
+                    {
+                        string lineInformation = parseResult.CardIdLineNumbers.TryGetValue(id, out var lines)
+                            ? $" on line(s) {string.Join(", ", lines)}"
+                            : string.Empty;
+                        throw new InvalidDataException(
+                            $"Card ID {id}{lineInformation} was not found in the card database.");
+                    }
+
+                    resolvedCards[id] = card;
+                });
+
+            if (_deckVersion != initialVersion)
+            {
+                throw new InvalidOperationException(
+                    "The active deck changed while the import was being prepared. The import was cancelled.");
+            }
+
             foreach (int id in parseResult.MainDeckIds)
             {
-                candidateDeck.MainDeck.Add(await ResolveCardAsync(id, parseResult));
+                candidateDeck.AddCard(resolvedCards[id], DeckSection.Main);
             }
 
             foreach (int id in parseResult.ExtraDeckIds)
             {
-                candidateDeck.ExtraDeck.Add(await ResolveCardAsync(id, parseResult));
+                candidateDeck.AddCard(resolvedCards[id], DeckSection.Extra);
             }
 
             foreach (int id in parseResult.SideDeckIds)
             {
-                candidateDeck.SideDeck.Add(await ResolveCardAsync(id, parseResult));
+                candidateDeck.AddCard(resolvedCards[id], DeckSection.Side);
+            }
+
+            if (!string.IsNullOrWhiteSpace(sourceFilePath))
+            {
+                candidateDeck.SetFilePath(sourceFilePath);
             }
 
             CurrentDeck = candidateDeck;
+            _deckVersion++;
             DeckChanged?.Invoke(this, EventArgs.Empty);
         }
 
@@ -86,21 +125,22 @@ namespace DuelBotStudio.Services
         public void AddCard(CardModel card, DeckSection section)
         {
             ArgumentNullException.ThrowIfNull(card);
-            GetSection(section).Add(card);
+            CurrentDeck.AddCard(card, section);
+            _deckVersion++;
             DeckChanged?.Invoke(this, EventArgs.Empty);
         }
 
         /// <summary>Removes the first matching card from the main deck.</summary>
         /// <param name="cardId">Identifier of the card to remove.</param>
-        public void RemoveCardFromMain(int cardId) => RemoveCard(CurrentDeck.MainDeck, cardId);
+        public void RemoveCardFromMain(int cardId) => RemoveCard(DeckSection.Main, cardId);
 
         /// <summary>Removes the first matching card from the extra deck.</summary>
         /// <param name="cardId">Identifier of the card to remove.</param>
-        public void RemoveCardFromExtra(int cardId) => RemoveCard(CurrentDeck.ExtraDeck, cardId);
+        public void RemoveCardFromExtra(int cardId) => RemoveCard(DeckSection.Extra, cardId);
 
         /// <summary>Removes the first matching card from the side deck.</summary>
         /// <param name="cardId">Identifier of the card to remove.</param>
-        public void RemoveCardFromSide(int cardId) => RemoveCard(CurrentDeck.SideDeck, cardId);
+        public void RemoveCardFromSide(int cardId) => RemoveCard(DeckSection.Side, cardId);
 
         /// <summary>Validates section sizes and total copies against the configured rules.</summary>
         public DeckValidationResult Validate()
@@ -124,38 +164,31 @@ namespace DuelBotStudio.Services
             return new DeckValidationResult(errors);
         }
 
-        private async Task<CardModel> ResolveCardAsync(int id, YdkParseResult parseResult)
+        private void RemoveCard(DeckSection section, int cardId)
         {
-            CardModel? card = await _cardInfoService.GetCardByIdAsync(id);
-            if (card is not null)
+            IReadOnlyList<CardModel> cards = section switch
             {
-                return card;
-            }
-
-            string lineInformation = parseResult.CardIdLineNumbers.TryGetValue(id, out var lines)
-                ? $" on line(s) {string.Join(", ", lines)}"
-                : string.Empty;
-            throw new InvalidDataException($"Card ID {id}{lineInformation} was not found in the card database.");
-        }
-
-        private List<CardModel> GetSection(DeckSection section) => section switch
-        {
-            DeckSection.Main => CurrentDeck.MainDeck,
-            DeckSection.Extra => CurrentDeck.ExtraDeck,
-            DeckSection.Side => CurrentDeck.SideDeck,
-            _ => throw new ArgumentOutOfRangeException(nameof(section), section, "Unknown deck section.")
-        };
-
-        private void RemoveCard(List<CardModel> section, int cardId)
-        {
-            var card = section.FirstOrDefault(candidate => candidate.Id == cardId);
+                DeckSection.Main => CurrentDeck.MainDeck,
+                DeckSection.Extra => CurrentDeck.ExtraDeck,
+                DeckSection.Side => CurrentDeck.SideDeck,
+                _ => throw new ArgumentOutOfRangeException(nameof(section), section, "Unknown deck section.")
+            };
+            var card = cards.FirstOrDefault(candidate => candidate.Id == cardId);
             if (card is null)
             {
                 return;
             }
 
-            section.Remove(card);
+            CurrentDeck.RemoveCard(section, card);
+            _deckVersion++;
             DeckChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        /// <summary>Records the path where the active deck was saved.</summary>
+        public void MarkSaved(string filePath)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
+            CurrentDeck.SetFilePath(filePath);
         }
 
         private static void ValidateRange(string section, int count, int minimum, int maximum, ICollection<string> errors)

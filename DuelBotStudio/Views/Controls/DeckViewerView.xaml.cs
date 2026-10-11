@@ -16,12 +16,16 @@ namespace DuelBotStudio.Views.Controls
     {
         private DeckManager? _deckManager;
         private CardImageCache? _cardImageCache;
+        private CancellationTokenSource? _refreshCancellation;
 
         /// <summary>Raised when the user selects a card.</summary>
         public event EventHandler<int>? CardSelected;
 
         /// <summary>Raised when the user requests a deck file import.</summary>
         public event RoutedEventHandler? LoadDeckRequested;
+
+        /// <summary>Raised when the user requests saving the active deck.</summary>
+        public event RoutedEventHandler? SaveDeckRequested;
 
         /// <summary>Creates the deck viewer control.</summary>
         public DeckViewerView()
@@ -32,6 +36,8 @@ namespace DuelBotStudio.Views.Controls
         /// <summary>Connects the viewer to the active deck manager.</summary>
         public void Initialize(DeckManager deckManager, CardImageCache cardImageCache)
         {
+            _refreshCancellation?.Cancel();
+            _refreshCancellation?.Dispose();
             if (_deckManager is not null)
             {
                 _deckManager.DeckChanged -= OnDeckChanged;
@@ -56,30 +62,62 @@ namespace DuelBotStudio.Views.Controls
                 return;
             }
 
+            var cancellation = new CancellationTokenSource();
+            CancellationTokenSource? previousRefresh = _refreshCancellation;
+            _refreshCancellation = cancellation;
+            previousRefresh?.Cancel();
+            previousRefresh?.Dispose();
+            CancellationToken token = cancellation.Token;
             var deck = _deckManager.CurrentDeck;
             StatusText.Text = string.Empty;
             try
             {
-                await RenderSection(MainDeckPanel, MainDeckHeader, "Main Deck", deck.MainDeck);
-                await RenderSection(ExtraDeckPanel, ExtraDeckHeader, "Extra Deck", deck.ExtraDeck);
-                await RenderSection(SideDeckPanel, SideDeckHeader, "Side Deck", deck.SideDeck);
+                await RenderSection(MainDeckPanel, MainDeckHeader, "Main Deck", deck.MainDeck, token);
+                await RenderSection(ExtraDeckPanel, ExtraDeckHeader, "Extra Deck", deck.ExtraDeck, token);
+                await RenderSection(SideDeckPanel, SideDeckHeader, "Side Deck", deck.SideDeck, token);
+            }
+            catch (OperationCanceledException) when (token.IsCancellationRequested)
+            {
             }
             catch (HttpRequestException exception)
             {
-                StatusText.Text = $"Some card images could not be loaded: {exception.Message}";
+                if (!token.IsCancellationRequested)
+                {
+                    StatusText.Text = $"Some card images could not be loaded: {exception.Message}";
+                }
             }
             catch (IOException exception)
             {
-                StatusText.Text = $"The image cache could not be accessed: {exception.Message}";
+                if (!token.IsCancellationRequested)
+                {
+                    StatusText.Text = $"The image cache could not be accessed: {exception.Message}";
+                }
             }
             catch (UnauthorizedAccessException exception)
             {
-                StatusText.Text = $"Image cache access was denied: {exception.Message}";
+                if (!token.IsCancellationRequested)
+                {
+                    StatusText.Text = $"Image cache access was denied: {exception.Message}";
+                }
+            }
+            finally
+            {
+                if (ReferenceEquals(_refreshCancellation, cancellation))
+                {
+                    _refreshCancellation = null;
+                    cancellation.Dispose();
+                }
             }
         }
 
-        private async Task RenderSection(WrapPanel panel, TextBlock header, string title, IReadOnlyList<CardModel> cards)
+        private async Task RenderSection(
+            WrapPanel panel,
+            TextBlock header,
+            string title,
+            IReadOnlyList<CardModel> cards,
+            CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             panel.Children.Clear();
             header.Text = $"{title} ({cards.Count})";
 
@@ -103,7 +141,26 @@ namespace DuelBotStudio.Views.Controls
                     return;
                 }
 
-                BitmapImage bitmap = await _cardImageCache.GetCardImageAsync(card.Id);
+                Task<BitmapImage> imageLoad = _cardImageCache.GetCardImageAsync(card.Id);
+                BitmapImage bitmap;
+                try
+                {
+                    bitmap = await imageLoad.WaitAsync(cancellationToken);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    _ = imageLoad.ContinueWith(
+                        task => System.Diagnostics.Trace.TraceError(
+                            "Card image request for {0} failed after its deck refresh was cancelled: {1}",
+                            card.Id,
+                            task.Exception),
+                        CancellationToken.None,
+                        TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+                        TaskScheduler.Default);
+                    throw;
+                }
+
+                cancellationToken.ThrowIfCancellationRequested();
                 if (panel.Children.Contains(image))
                 {
                     image.Source = bitmap;
@@ -146,6 +203,11 @@ namespace DuelBotStudio.Views.Controls
         private async void OnDeckChanged(object? sender, EventArgs e)
         {
             await RefreshAsync();
+        }
+
+        private void OnSaveDeckButtonClick(object sender, RoutedEventArgs e)
+        {
+            SaveDeckRequested?.Invoke(this, e);
         }
     }
 }

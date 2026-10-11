@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -15,11 +14,15 @@ namespace DuelBotStudio.Services
     public sealed class YgoCardInfoService
     {
         private const string ApiBaseAddress = "https://db.ygoprodeck.com/api/v7/";
+        private const int MaxMemoryCacheCapacity = 500;
         private readonly string _dataCacheDirectory;
         private readonly HttpClient _httpClient;
         private readonly JsonSerializerOptions _jsonOptions = new() { PropertyNameCaseInsensitive = true };
-        private readonly ConcurrentDictionary<int, CardModel> _memoryCache = new();
-        private readonly ConcurrentDictionary<int, SemaphoreSlim> _requestLocks = new();
+        private readonly Dictionary<int, CardModel> _memoryCache = new();
+        private readonly LinkedList<int> _memoryCacheLru = new();
+        private readonly Dictionary<int, Lazy<Task<CardModel?>>> _inflightRequests = new();
+        private readonly object _cacheLock = new();
+        private readonly object _inflightLock = new();
 
         /// <summary>Creates a card service using the per-user application cache directory.</summary>
         public YgoCardInfoService()
@@ -53,25 +56,40 @@ namespace DuelBotStudio.Services
         {
             ArgumentOutOfRangeException.ThrowIfNegativeOrZero(cardId);
 
-            if (_memoryCache.TryGetValue(cardId, out var cachedCard))
+            if (TryGetCachedCard(cardId, out var cachedCard))
             {
                 return cachedCard;
             }
 
-            var requestLock = _requestLocks.GetOrAdd(cardId, _ => new SemaphoreSlim(1, 1));
-            await requestLock.WaitAsync();
+            Lazy<Task<CardModel?>> request;
+            lock (_inflightLock)
+            {
+                if (!_inflightRequests.TryGetValue(cardId, out request!))
+                {
+                    request = new Lazy<Task<CardModel?>>(
+                        () => LoadCardByIdAsync(cardId),
+                        LazyThreadSafetyMode.ExecutionAndPublication);
+                    _inflightRequests.Add(cardId, request);
+                }
+            }
+
             try
             {
-                if (_memoryCache.TryGetValue(cardId, out cachedCard))
-                {
-                    return cachedCard;
-                }
-
-                return await LoadCardByIdAsync(cardId);
+                return await request.Value;
             }
             finally
             {
-                requestLock.Release();
+                if (request.IsValueCreated && request.Value.IsCompleted)
+                {
+                    lock (_inflightLock)
+                    {
+                        if (_inflightRequests.TryGetValue(cardId, out var current) &&
+                            ReferenceEquals(current, request))
+                        {
+                            _inflightRequests.Remove(cardId);
+                        }
+                    }
+                }
             }
         }
 
@@ -94,7 +112,7 @@ namespace DuelBotStudio.Services
 
                 if (cachedCard?.Id == cardId)
                 {
-                    _memoryCache.TryAdd(cardId, cachedCard);
+                    AddToMemoryCache(cardId, cachedCard);
                     return cachedCard;
                 }
 
@@ -137,8 +155,43 @@ namespace DuelBotStudio.Services
                 }
             }
 
-            _memoryCache.TryAdd(cardId, result);
+            AddToMemoryCache(cardId, result);
             return result;
+        }
+
+        private bool TryGetCachedCard(int cardId, out CardModel card)
+        {
+            lock (_cacheLock)
+            {
+                if (_memoryCache.TryGetValue(cardId, out card!))
+                {
+                    _memoryCacheLru.Remove(cardId);
+                    _memoryCacheLru.AddLast(cardId);
+                    return true;
+                }
+            }
+
+            card = null!;
+            return false;
+        }
+
+        private void AddToMemoryCache(int cardId, CardModel card)
+        {
+            lock (_cacheLock)
+            {
+                if (_memoryCache.ContainsKey(cardId))
+                {
+                    _memoryCacheLru.Remove(cardId);
+                }
+                else if (_memoryCache.Count >= MaxMemoryCacheCapacity && _memoryCacheLru.First is not null)
+                {
+                    _memoryCache.Remove(_memoryCacheLru.First.Value);
+                    _memoryCacheLru.RemoveFirst();
+                }
+
+                _memoryCache[cardId] = card;
+                _memoryCacheLru.AddLast(cardId);
+            }
         }
 
         /// <summary>Searches card names and descriptions, deduplicating results by card ID.</summary>

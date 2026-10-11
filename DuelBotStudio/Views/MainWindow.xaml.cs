@@ -1,6 +1,7 @@
 using System.IO;
 using System.Net.Http;
 using System.Text.Json;
+using System.ComponentModel;
 using System.Windows;
 using DuelBotStudio.Services;
 using DuelBotStudio.ViewModels;
@@ -11,6 +12,7 @@ namespace DuelBotStudio
     public partial class MainWindow : Window
     {
         private readonly MainWindowViewModel _viewModel;
+        private bool _closeAfterPrompt;
 
         /// <summary>Creates the main application window and connects its views.</summary>
         public MainWindow()
@@ -20,12 +22,14 @@ namespace DuelBotStudio
             var cardInfoService = new YgoCardInfoService();
             var cardImageCache = new CardImageCache();
             _viewModel = new MainWindowViewModel(cardInfoService, new YdkParserService());
+            DataContext = _viewModel;
 
             CardDetailsControl.Initialize(cardInfoService, cardImageCache);
             DeckViewerControl.Initialize(_viewModel.DeckManager, cardImageCache);
             DeckEditorControl.Initialize(cardInfoService, _viewModel.DeckManager);
 
             DeckViewerControl.LoadDeckRequested += OnLoadDeckButtonClick;
+            DeckViewerControl.SaveDeckRequested += OnSaveDeckButtonClick;
             DeckViewerControl.CardSelected += async (_, cardId) => await CardDetailsControl.ShowCardAsync(cardId);
         }
 
@@ -38,6 +42,11 @@ namespace DuelBotStudio
             };
 
             if (dialog.ShowDialog() != true)
+            {
+                return;
+            }
+
+            if (!await ConfirmSaveOrDiscardAsync())
             {
                 return;
             }
@@ -69,12 +78,102 @@ namespace DuelBotStudio
             {
                 ShowLoadError(exception.Message);
             }
+            catch (InvalidOperationException exception)
+            {
+                ShowLoadError(exception.Message);
+            }
+        }
+
+        private async void OnSaveDeckButtonClick(object sender, RoutedEventArgs e)
+        {
+            await SaveDeckFromDialogAsync();
+        }
+
+        private async Task<bool> ConfirmSaveOrDiscardAsync()
+        {
+            if (!_viewModel.IsDirty)
+            {
+                return true;
+            }
+
+            MessageBoxResult choice = MessageBox.Show(
+                "The current deck has unsaved changes. Save them before continuing?",
+                "Unsaved deck changes",
+                MessageBoxButton.YesNoCancel,
+                MessageBoxImage.Warning);
+
+            return choice switch
+            {
+                MessageBoxResult.Yes => await SaveDeckFromDialogAsync(),
+                MessageBoxResult.No => true,
+                _ => false
+            };
+        }
+
+        private async Task<bool> SaveDeckFromDialogAsync()
+        {
+            var dialog = new SaveFileDialog
+            {
+                Title = "Save deck",
+                Filter = "Deck files (*.ydk)|*.ydk",
+                DefaultExt = ".ydk",
+                AddExtension = true,
+                FileName = string.IsNullOrWhiteSpace(_viewModel.DeckManager.CurrentDeck.FilePath)
+                    ? "deck.ydk"
+                    : Path.GetFileName(_viewModel.DeckManager.CurrentDeck.FilePath)
+            };
+
+            if (dialog.ShowDialog() != true)
+            {
+                return false;
+            }
+
+            try
+            {
+                await _viewModel.SaveDeckAsync(dialog.FileName);
+                return true;
+            }
+            catch (IOException exception)
+            {
+                ShowSaveError(exception.Message);
+            }
+            catch (UnauthorizedAccessException exception)
+            {
+                ShowSaveError(exception.Message);
+            }
+            catch (ArgumentException exception)
+            {
+                ShowSaveError(exception.Message);
+            }
+
+            return false;
+        }
+
+        private async void OnWindowClosing(object? sender, CancelEventArgs e)
+        {
+            if (_closeAfterPrompt || !_viewModel.IsDirty)
+            {
+                return;
+            }
+
+            e.Cancel = true;
+            if (await ConfirmSaveOrDiscardAsync())
+            {
+                _closeAfterPrompt = true;
+                Close();
+            }
         }
 
         private static void ShowLoadError(string message)
         {
             MessageBox.Show($"The deck could not be loaded. The current deck was preserved.{Environment.NewLine}{message}",
                 "Deck load failed", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+
+        private static void ShowSaveError(string message)
+        {
+            MessageBox.Show($"The deck could not be saved.{Environment.NewLine}{message}",
+                "Deck save failed", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 }

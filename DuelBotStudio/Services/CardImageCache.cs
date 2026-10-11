@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.IO;
 using System.Net.Http;
 using System.Windows.Media.Imaging;
@@ -14,9 +13,10 @@ namespace DuelBotStudio.Services
         private readonly string _cacheDirectory;
         private readonly Dictionary<int, BitmapImage> _memoryCache = new();
         private readonly LinkedList<int> _lruList = new();
-        private readonly ConcurrentDictionary<int, SemaphoreSlim> _downloadLocks = new();
+        private readonly Dictionary<int, Lazy<Task<BitmapImage>>> _inflightDownloads = new();
         private readonly HttpClient _httpClient;
         private readonly object _cacheLock = new();
+        private readonly object _inflightLock = new();
 
         /// <summary>Creates an image cache using the per-user application cache directory.</summary>
         public CardImageCache()
@@ -52,65 +52,90 @@ namespace DuelBotStudio.Services
                 return cachedImage;
             }
 
-            var downloadLock = _downloadLocks.GetOrAdd(cardId, _ => new SemaphoreSlim(1, 1));
-            await downloadLock.WaitAsync();
+            Lazy<Task<BitmapImage>> download;
+            lock (_inflightLock)
+            {
+                if (!_inflightDownloads.TryGetValue(cardId, out download!))
+                {
+                    download = new Lazy<Task<BitmapImage>>(
+                        () => LoadCardImageAsync(cardId),
+                        LazyThreadSafetyMode.ExecutionAndPublication);
+                    _inflightDownloads.Add(cardId, download);
+                }
+            }
+
             try
             {
-                if (TryGetCachedImage(cardId, out cachedImage))
-                {
-                    return cachedImage;
-                }
-
-                Directory.CreateDirectory(_cacheDirectory);
-                string filePath = Path.Combine(_cacheDirectory, $"{cardId}.jpg");
-                BitmapImage? bitmap = File.Exists(filePath) ? LoadBitmapFromFile(filePath) : null;
-
-                if (bitmap is null)
-                {
-                    if (File.Exists(filePath))
-                    {
-                        File.Delete(filePath);
-                    }
-
-                    byte[] imageBytes;
-                    try
-                    {
-                        imageBytes = await _httpClient.GetByteArrayAsync(
-                            $"https://images.ygoprodeck.com/images/cards/{cardId}.jpg");
-                    }
-                    catch (OperationCanceledException exception)
-                    {
-                        throw new HttpRequestException("The card image request timed out.", exception);
-                    }
-                    string temporaryPath = $"{filePath}.{Guid.NewGuid():N}.tmp";
-                    try
-                    {
-                        await File.WriteAllBytesAsync(temporaryPath, imageBytes);
-                        File.Move(temporaryPath, filePath, true);
-                    }
-                    finally
-                    {
-                        if (File.Exists(temporaryPath))
-                        {
-                            File.Delete(temporaryPath);
-                        }
-                    }
-
-                    bitmap = LoadBitmapFromFile(filePath);
-                    if (bitmap is null)
-                    {
-                        File.Delete(filePath);
-                        throw new InvalidDataException($"The image service returned invalid image data for card {cardId}.");
-                    }
-                }
-
-                AddToMemoryCache(cardId, bitmap);
-                return bitmap;
+                return await download.Value;
             }
             finally
             {
-                downloadLock.Release();
+                if (download.IsValueCreated && download.Value.IsCompleted)
+                {
+                    lock (_inflightLock)
+                    {
+                        if (_inflightDownloads.TryGetValue(cardId, out var current) &&
+                            ReferenceEquals(current, download))
+                        {
+                            _inflightDownloads.Remove(cardId);
+                        }
+                    }
+                }
             }
+        }
+
+        private async Task<BitmapImage> LoadCardImageAsync(int cardId)
+        {
+            if (TryGetCachedImage(cardId, out var cachedImage))
+            {
+                return cachedImage;
+            }
+
+            Directory.CreateDirectory(_cacheDirectory);
+            string filePath = Path.Combine(_cacheDirectory, $"{cardId}.jpg");
+            BitmapImage? bitmap = File.Exists(filePath) ? LoadBitmapFromFile(filePath) : null;
+
+            if (bitmap is null)
+            {
+                if (File.Exists(filePath))
+                {
+                    File.Delete(filePath);
+                }
+
+                byte[] imageBytes;
+                try
+                {
+                    imageBytes = await _httpClient.GetByteArrayAsync(
+                        $"https://images.ygoprodeck.com/images/cards/{cardId}.jpg");
+                }
+                catch (OperationCanceledException exception)
+                {
+                    throw new HttpRequestException("The card image request timed out.", exception);
+                }
+                string temporaryPath = $"{filePath}.{Guid.NewGuid():N}.tmp";
+                try
+                {
+                    await File.WriteAllBytesAsync(temporaryPath, imageBytes);
+                    File.Move(temporaryPath, filePath, true);
+                }
+                finally
+                {
+                    if (File.Exists(temporaryPath))
+                    {
+                        File.Delete(temporaryPath);
+                    }
+                }
+
+                bitmap = LoadBitmapFromFile(filePath);
+                if (bitmap is null)
+                {
+                    File.Delete(filePath);
+                    throw new InvalidDataException($"The image service returned invalid image data for card {cardId}.");
+                }
+            }
+
+            AddToMemoryCache(cardId, bitmap);
+            return bitmap;
         }
 
         private bool TryGetCachedImage(int cardId, out BitmapImage bitmap)

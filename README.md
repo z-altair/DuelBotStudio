@@ -31,12 +31,13 @@ dotnet run --project DuelBotStudio/DuelBotStudio.csproj
 - Report malformed lines and unknown card IDs with their source line numbers. An invalid file does not replace the active deck.
 - Search cards by name and description using the YGOPRODeck API.
 - Add cards explicitly to the main, extra, or side deck and remove cards from the deck viewer.
+- Export decks as `.ydk` files and prompt before discarding unsaved changes.
 - Validate main/extra/side section sizes and total copies against configurable `DeckRules`. Defaults are 40–60 main-deck cards, up to 15 extra-deck cards, up to 15 side-deck cards, and up to 3 copies of a card across the deck.
 - No banlist is bundled or enforced. Applications embedding the deck manager can supply their own structural limits.
 
 ## External services and cache
 
-Card metadata is retrieved from the YGOPRODeck API; card images are retrieved from its image service. Successful metadata responses and downloaded images are cached under:
+Card metadata is retrieved from the YGOPRODeck API; card images are retrieved from its image service. Successful metadata responses and downloaded images are cached under the following directory. In-memory caches are bounded, and duplicate concurrent requests for the same card share a single fetch:
 
 ```text
 %LOCALAPPDATA%\DuelBotStudio\Cache
@@ -50,7 +51,7 @@ Invalid cached metadata and corrupt cached images are removed and fetched again.
 - `Services/`: YDK parsing, deck editing and validation, card metadata, and image caching.
 - `ViewModels/`: workspace orchestration and card-search/editor state.
 - `Views/`: WPF windows and controls.
-- `DuelBotStudio.Tests/`: parser, deck validation, transactional import, and metadata-cache tests.
+- `DuelBotStudio.Tests/`: parser, deck validation, transactional and bounded-concurrency import, YDK export, and cache tests.
 
 Public C# APIs are documented with XML comments. Generated XML documentation is emitted alongside the application assembly.
 
