@@ -6,6 +6,7 @@
             <StackPanel>
                 <TextBlock Text="Card Details" Foreground="White" FontSize="16" FontWeight="Bold" Margin="0,0,0,10"/>
                 <Image x:Name="SelectedCardImage" Height="320" Stretch="Uniform" Margin="0,0,0,10"/>
+                <TextBlock x:Name="SelectedCardStatus" Foreground="#FFB870" TextWrapping="Wrap" Margin="0,0,0,6"/>
                 <TextBlock x:Name="SelectedCardName" Foreground="#FFD700" FontSize="15" FontWeight="Bold" TextWrapping="Wrap" Margin="0,0,0,5"/>
                 <TextBlock x:Name="SelectedCardType" Foreground="#AAAAAA" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,5"/>
                 <TextBlock x:Name="SelectedCardStats" Foreground="#00FF7F" FontSize="12" FontWeight="Bold" Margin="0,0,0,10"/>

@@ -1,29 +1,32 @@
-using DuelBotStudio.Services;
-using Microsoft.Win32;
+using System.IO;
+using System.Net.Http;
+using System.Text.Json;
 using System.Windows;
+using DuelBotStudio.Services;
+using DuelBotStudio.ViewModels;
+using Microsoft.Win32;
 
 namespace DuelBotStudio
 {
     public partial class MainWindow : Window
     {
-        private readonly DeckManager _deckManager;
-        private readonly YdkParserService _ydkParserService;
+        private readonly MainWindowViewModel _viewModel;
 
+        /// <summary>Creates the main application window and connects its views.</summary>
         public MainWindow()
         {
             InitializeComponent();
 
             var cardInfoService = new YgoCardInfoService();
-            _ydkParserService = new YdkParserService();
-            _deckManager = new DeckManager(cardInfoService);
+            var cardImageCache = new CardImageCache();
+            _viewModel = new MainWindowViewModel(cardInfoService, new YdkParserService());
 
-            CardDetailsControl.Initialize(cardInfoService);
-            DeckViewerControl.Initialize(_deckManager);
-            DeckEditorControl.Initialize(cardInfoService, _deckManager);
+            CardDetailsControl.Initialize(cardInfoService, cardImageCache);
+            DeckViewerControl.Initialize(_viewModel.DeckManager, cardImageCache);
+            DeckEditorControl.Initialize(cardInfoService, _viewModel.DeckManager);
 
             DeckViewerControl.LoadDeckRequested += OnLoadDeckButtonClick;
             DeckViewerControl.CardSelected += async (_, cardId) => await CardDetailsControl.ShowCardAsync(cardId);
-            DeckEditorControl.DeckChanged += async (_, _) => await DeckViewerControl.RefreshAsync();
         }
 
         private async void OnLoadDeckButtonClick(object sender, RoutedEventArgs e)
@@ -39,16 +42,39 @@ namespace DuelBotStudio
                 return;
             }
 
-            var parseResult = _ydkParserService.ParseFile(dialog.FileName);
-            if (parseResult.HasErrors)
+            try
             {
-                MessageBox.Show(string.Join("\n", parseResult.Errors), "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
+                var errors = await _viewModel.LoadDeckAsync(dialog.FileName);
+                if (errors.Count > 0)
+                {
+                    MessageBox.Show(string.Join(Environment.NewLine, errors), "Invalid deck file", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
 
-            await _deckManager.LoadFromParseResultAsync(parseResult);
-            CardDetailsControl.Clear();
-            await DeckViewerControl.RefreshAsync();
+                CardDetailsControl.Clear();
+            }
+            catch (HttpRequestException exception)
+            {
+                ShowLoadError(exception.Message);
+            }
+            catch (IOException exception)
+            {
+                ShowLoadError(exception.Message);
+            }
+            catch (UnauthorizedAccessException exception)
+            {
+                ShowLoadError(exception.Message);
+            }
+            catch (JsonException exception)
+            {
+                ShowLoadError(exception.Message);
+            }
+        }
+
+        private static void ShowLoadError(string message)
+        {
+            MessageBox.Show($"The deck could not be loaded. The current deck was preserved.{Environment.NewLine}{message}",
+                "Deck load failed", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 }

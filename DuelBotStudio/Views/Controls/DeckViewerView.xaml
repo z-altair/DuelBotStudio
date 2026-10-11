@@ -7,6 +7,8 @@
                 Height="35"
                 Margin="0,0,0,10"
                 Click="OnLoadDeckButtonClick"/>
+        <TextBlock x:Name="StatusText" DockPanel.Dock="Top" Foreground="#FFB870"
+                   TextWrapping="Wrap" Margin="4,0,4,6"/>
         <ScrollViewer VerticalScrollBarVisibility="Auto">
             <StackPanel>
                 <TextBlock x:Name="MainDeckHeader" Text="Main Deck (0)" Foreground="White" FontSize="16" FontWeight="Bold" Margin="5"/>

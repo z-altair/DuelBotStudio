@@ -1,16 +1,56 @@
 <UserControl x:Class="DuelBotStudio.Views.Controls.DeckEditorView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <StackPanel Margin="10">
-        <TextBlock Text="Card Search" Foreground="White" FontSize="14" FontWeight="Bold" Margin="0,0,0,5"/>
-        <TextBox x:Name="SearchInputTextBox" Height="28" Margin="0,0,0,8" VerticalContentAlignment="Center"/>
-        <Button Content="Search Card" Height="30" Margin="0,0,0,15" Click="OnSearchButtonClick"/>
-        <TextBlock Text="Search Results" Foreground="White" FontSize="12" FontWeight="Bold" Margin="0,0,0,5"/>
-        <ListBox x:Name="SearchResultsListBox"
-                 Height="380"
-                 Background="#1E1E1E"
-                 Foreground="White"
-                 DisplayMemberPath="Name"
-                 PreviewMouseRightButtonUp="OnSearchResultRightClick"/>
-    </StackPanel>
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="10">
+            <TextBlock Text="Card Search" Foreground="White" FontSize="14" FontWeight="Bold" Margin="0,0,0,5"/>
+            <TextBox Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"
+                     Height="28" Margin="0,0,0,8" VerticalContentAlignment="Center"/>
+            <Button Content="Search Cards" Height="30" Margin="0,0,0,8"
+                    Click="OnSearchButtonClick" IsEnabled="{Binding CanSearch}"/>
+            <TextBlock Text="{Binding StatusMessage}" Foreground="#DDDDDD" TextWrapping="Wrap" Margin="0,0,0,8"/>
+            <TextBlock Text="Add to section" Foreground="White" FontSize="12" FontWeight="Bold" Margin="0,0,0,5"/>
+            <ComboBox ItemsSource="{Binding Sections}" SelectedItem="{Binding SelectedSection}"
+                      Height="28" Margin="0,0,0,8"/>
+            <Button Content="Add Selected Card" Height="30" Margin="0,0,0,12"
+                    Click="OnAddCardButtonClick" IsEnabled="{Binding CanAddSelectedCard}"/>
+            <TextBlock Text="Search Results" Foreground="White" FontSize="12" FontWeight="Bold" Margin="0,0,0,5"/>
+            <ListBox ItemsSource="{Binding SearchResults}" SelectedItem="{Binding SelectedCard}"
+                     Height="220" Background="#1E1E1E" Foreground="White" DisplayMemberPath="Name"/>
+            <TextBlock Text="Deck Limits" Foreground="White" FontSize="12" FontWeight="Bold" Margin="0,12,0,5"/>
+            <Grid Margin="0,0,0,6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="52"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="52"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="Main min" Foreground="#DDDDDD" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding MinimumMainDeckSize, UpdateSourceTrigger=PropertyChanged}" Margin="2"/>
+                <TextBlock Grid.Row="0" Grid.Column="2" Text="Main max" Foreground="#DDDDDD" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="0" Grid.Column="3" Text="{Binding MaximumMainDeckSize, UpdateSourceTrigger=PropertyChanged}" Margin="2"/>
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="Extra max" Foreground="#DDDDDD" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding MaximumExtraDeckSize, UpdateSourceTrigger=PropertyChanged}" Margin="2"/>
+                <TextBlock Grid.Row="1" Grid.Column="2" Text="Side max" Foreground="#DDDDDD" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="1" Grid.Column="3" Text="{Binding MaximumSideDeckSize, UpdateSourceTrigger=PropertyChanged}" Margin="2"/>
+                <TextBlock Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" Text="Maximum copies per card" Foreground="#DDDDDD" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="2" Grid.Column="3" Text="{Binding MaximumCopiesPerCard, UpdateSourceTrigger=PropertyChanged}" Margin="2"/>
+            </Grid>
+            <Button Content="Apply Deck Limits" Height="28" Margin="0,0,0,8" Click="OnApplyRulesButtonClick"/>
+            <TextBlock Text="Deck Validation" Foreground="White" FontSize="12" FontWeight="Bold" Margin="0,12,0,5"/>
+            <TextBlock Text="{Binding ValidationStatus}" Foreground="#80D080" TextWrapping="Wrap" Margin="0,0,0,5"/>
+            <ItemsControl ItemsSource="{Binding ValidationErrors}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding}" Foreground="#FF8080" TextWrapping="Wrap" Margin="0,0,0,4"/>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+    </ScrollViewer>
 </UserControl>

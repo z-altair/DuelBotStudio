@@ -4,9 +4,7 @@ using System.Windows;
 
 namespace DuelBotStudio
 {
-    /// <summary>
-    /// Interaction logic for App.xaml
-    /// </summary>
+    /// <summary>Provides application startup and shared WPF resources.</summary>
     public partial class App : Application
     {
     }

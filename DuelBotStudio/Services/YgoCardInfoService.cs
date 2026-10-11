@@ -1,113 +1,226 @@
-﻿using DuelBotStudio.Models.Card;
-using System;
-using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.IO;
+using System.Net;
 using System.Net.Http;
+using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using DuelBotStudio.Models.Card;
 
 namespace DuelBotStudio.Services
 {
-    public class YgoCardInfoService
+    /// <summary>
+    /// Retrieves Yu-Gi-Oh! card data from YGOPRODeck and maintains a local JSON cache.
+    /// </summary>
+    public sealed class YgoCardInfoService
     {
-        private static readonly string _dataCacheDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Cache", "Data");
+        private const string ApiBaseAddress = "https://db.ygoprodeck.com/api/v7/";
+        private readonly string _dataCacheDirectory;
         private readonly HttpClient _httpClient;
-        private readonly JsonSerializerOptions _jsonOptions;
-        private readonly Dictionary<int, CardModel> _memoryCache;
+        private readonly JsonSerializerOptions _jsonOptions = new() { PropertyNameCaseInsensitive = true };
+        private readonly ConcurrentDictionary<int, CardModel> _memoryCache = new();
+        private readonly ConcurrentDictionary<int, SemaphoreSlim> _requestLocks = new();
 
+        /// <summary>Creates a card service using the per-user application cache directory.</summary>
         public YgoCardInfoService()
+            : this(null, Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "DuelBotStudio",
+                "Cache",
+                "Data"))
         {
-            if (!Directory.Exists(_dataCacheDirectory))
-            {
-                Directory.CreateDirectory(_dataCacheDirectory);
-            }
-
-            _httpClient = new HttpClient
-            {
-                BaseAddress = new Uri("https://db.ygoprodeck.com/api/v7/")
-            };
-
-            _jsonOptions = new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true
-            };
-
-            _memoryCache = new Dictionary<int, CardModel>();
-
         }
 
+        /// <summary>Creates a service with an optional HTTP client and cache directory.</summary>
+        /// <param name="httpClient">Optional HTTP client, useful for hosting and testing.</param>
+        /// <param name="dataCacheDirectory">Writable directory used for cached card data.</param>
+        public YgoCardInfoService(HttpClient? httpClient, string dataCacheDirectory)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(dataCacheDirectory);
+            _dataCacheDirectory = dataCacheDirectory;
+            _httpClient = httpClient ?? new HttpClient();
+            _httpClient.BaseAddress ??= new Uri(ApiBaseAddress);
+        }
+
+        /// <summary>Gets a card by ID, returning null only when the API reports no matching card.</summary>
+        /// <param name="cardId">Positive card database identifier.</param>
+        /// <returns>The requested card, or null if it is not present in the database.</returns>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="cardId"/> is not positive.</exception>
+        /// <exception cref="HttpRequestException">The card service request fails or times out.</exception>
+        /// <exception cref="IOException">The local metadata cache cannot be read or written.</exception>
+        /// <exception cref="JsonException">The card service returns invalid data.</exception>
         public async Task<CardModel?> GetCardByIdAsync(int cardId)
         {
-            // Level 1: RAM Memory Check
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(cardId);
+
             if (_memoryCache.TryGetValue(cardId, out var cachedCard))
             {
                 return cachedCard;
             }
 
-            string filePath = Path.Combine(_dataCacheDirectory, $"{cardId}.json");
+            var requestLock = _requestLocks.GetOrAdd(cardId, _ => new SemaphoreSlim(1, 1));
+            await requestLock.WaitAsync();
+            try
+            {
+                if (_memoryCache.TryGetValue(cardId, out cachedCard))
+                {
+                    return cachedCard;
+                }
 
+                return await LoadCardByIdAsync(cardId);
+            }
+            finally
+            {
+                requestLock.Release();
+            }
+        }
+
+        private async Task<CardModel?> LoadCardByIdAsync(int cardId)
+        {
+            Directory.CreateDirectory(_dataCacheDirectory);
+            string filePath = Path.Combine(_dataCacheDirectory, $"{cardId}.json");
             if (File.Exists(filePath))
             {
+                string cachedJson = await File.ReadAllTextAsync(filePath);
+                CardModel? cachedCard = null;
                 try
                 {
-                    string jsonFromDisk = await File.ReadAllTextAsync(filePath);
-                    CardModel? card = JsonSerializer.Deserialize<CardModel>(jsonFromDisk, _jsonOptions);
-                    if (card != null)
-                    {
-                        _memoryCache[cardId] = card;
-                        return card;
-                    }
+                    cachedCard = JsonSerializer.Deserialize<CardModel>(cachedJson, _jsonOptions);
                 }
-                catch (Exception)
+                catch (JsonException)
                 {
+                    Trace.TraceWarning("Discarding malformed card metadata cache entry: {0}", filePath);
+                }
+
+                if (cachedCard?.Id == cardId)
+                {
+                    _memoryCache.TryAdd(cardId, cachedCard);
+                    return cachedCard;
+                }
+
+                File.Delete(filePath);
+            }
+
+            string? jsonResponse = await GetApiResponseAsync($"cardinfo.php?id={cardId}");
+            if (jsonResponse is null)
+            {
+                return null;
+            }
+
+            var apiResponse = JsonSerializer.Deserialize<YgoApiResponseDto>(jsonResponse, _jsonOptions)
+                ?? throw new JsonException("The card API returned an empty response.");
+            var cards = apiResponse.Data
+                ?? throw new JsonException("The card API response is missing its data array.");
+            var cardDto = cards.FirstOrDefault();
+            if (cardDto is null)
+            {
+                return null;
+            }
+
+            if (cardDto.Id != cardId)
+            {
+                throw new JsonException($"The card API returned ID {cardDto.Id} for requested ID {cardId}.");
+            }
+
+            var result = ToCardModel(cardDto);
+            string temporaryPath = $"{filePath}.{Guid.NewGuid():N}.tmp";
+            try
+            {
+                await File.WriteAllTextAsync(temporaryPath, JsonSerializer.Serialize(result, _jsonOptions));
+                File.Move(temporaryPath, filePath, true);
+            }
+            finally
+            {
+                if (File.Exists(temporaryPath))
+                {
+                    File.Delete(temporaryPath);
                 }
             }
 
-            // Level 3: Fetch from Web API
+            _memoryCache.TryAdd(cardId, result);
+            return result;
+        }
+
+        /// <summary>Searches card names and descriptions, deduplicating results by card ID.</summary>
+        /// <param name="query">Search text; values shorter than three characters return no results.</param>
+        /// <returns>Matching cards, deduplicated by identifier.</returns>
+        /// <exception cref="HttpRequestException">A search request fails or times out.</exception>
+        /// <exception cref="JsonException">The card service returns invalid data.</exception>
+        public async Task<List<CardModel>> SearchCardsByNameAsync(string query)
+        {
+            ArgumentNullException.ThrowIfNull(query);
+            if (string.IsNullOrWhiteSpace(query) || query.Trim().Length < 3)
+            {
+                return new List<CardModel>();
+            }
+
+            string encodedQuery = Uri.EscapeDataString(query.Trim());
+            Task<string?> nameTask = GetApiResponseAsync($"cardinfo.php?fname={encodedQuery}");
+            Task<string?> descriptionTask = GetApiResponseAsync($"cardinfo.php?desc={encodedQuery}");
+            await Task.WhenAll(nameTask, descriptionTask);
+
+            var nameResults = ParseCardsFromJson(nameTask.Result);
+            var descriptionResults = ParseCardsFromJson(descriptionTask.Result);
+            return nameResults.UnionBy(descriptionResults, card => card.Id).ToList();
+        }
+
+        private async Task<string?> GetApiResponseAsync(string endpoint)
+        {
             try
             {
-                string jsonResponse = await _httpClient.GetStringAsync($"cardinfo.php?id={cardId}");
-                var apiResponse = JsonSerializer.Deserialize<YgoApiResponseDto>(jsonResponse, _jsonOptions);
+                using var response = await _httpClient.GetAsync(endpoint);
+                string body = await response.Content.ReadAsStringAsync();
 
-                var cardDto = apiResponse?.Data?.FirstOrDefault();
-                if (cardDto == null)
+                if (response.StatusCode == HttpStatusCode.BadRequest &&
+                    body.Contains("No card matching your query", StringComparison.OrdinalIgnoreCase))
                 {
                     return null;
                 }
 
-                var card = new CardModel
-                {
-                    Id = cardDto.Id,
-                    Name = cardDto.Name ?? string.Empty,
-                    Description = cardDto.Description ?? string.Empty,
-                    Type = cardDto.Type ?? string.Empty,
-                    Attribute = cardDto.Attribute ?? string.Empty,
-                    Race = cardDto.Race ?? string.Empty,
-                    Atk = cardDto.Atk,
-                    Def = cardDto.Def,
-                    Level = cardDto.Level,
-                    ImageUrl = cardDto.CardImages?.FirstOrDefault()?.ImageUrl ?? string.Empty
-                };
-
-                string jsonToSave = JsonSerializer.Serialize(card, _jsonOptions);
-                await File.WriteAllTextAsync(filePath, jsonToSave);
-
-                _memoryCache[cardId] = card;
-                return card;
+                response.EnsureSuccessStatusCode();
+                return body;
             }
-            catch (Exception)
+            catch (OperationCanceledException exception)
             {
-                return null;
+                throw new HttpRequestException("The card service request timed out.", exception);
             }
         }
 
-        internal class YgoApiResponseDto
+        private List<CardModel> ParseCardsFromJson(string? json)
+        {
+            if (json is null)
+            {
+                return new List<CardModel>();
+            }
+
+            var apiResponse = JsonSerializer.Deserialize<YgoApiResponseDto>(json, _jsonOptions)
+                ?? throw new JsonException("The card API returned an empty response.");
+            var cards = apiResponse.Data
+                ?? throw new JsonException("The card API response is missing its data array.");
+            return cards.Select(ToCardModel).ToList();
+        }
+
+        private static CardModel ToCardModel(YgoCardDto dto) => new()
+        {
+            Id = dto.Id,
+            Name = dto.Name ?? string.Empty,
+            Description = dto.Description ?? string.Empty,
+            Type = dto.Type ?? string.Empty,
+            Attribute = dto.Attribute ?? string.Empty,
+            Race = dto.Race ?? string.Empty,
+            Atk = dto.Atk,
+            Def = dto.Def,
+            Level = dto.Level,
+            ImageUrl = dto.CardImages?.FirstOrDefault()?.ImageUrl ?? string.Empty
+        };
+
+        private sealed class YgoApiResponseDto
         {
             [JsonPropertyName("data")]
-            public List<YgoCardDto> Data { get; set; } = new List<YgoCardDto>();
+            public List<YgoCardDto>? Data { get; set; } = new();
         }
 
-        internal class YgoCardDto
+        private sealed class YgoCardDto
         {
             [JsonPropertyName("id")]
             public int Id { get; set; }
@@ -123,86 +236,18 @@ namespace DuelBotStudio.Services
             public int? Def { get; set; }
             [JsonPropertyName("level")]
             public int? Level { get; set; }
-
             [JsonPropertyName("race")]
             public string? Race { get; set; }
-
             [JsonPropertyName("attribute")]
             public string? Attribute { get; set; }
-
             [JsonPropertyName("card_images")]
-            public List<YgoCardImageDto> CardImages { get; set; } = new List<YgoCardImageDto>();
+            public List<YgoCardImageDto>? CardImages { get; set; } = new();
         }
 
-        internal class YgoCardImageDto
+        private sealed class YgoCardImageDto
         {
             [JsonPropertyName("image_url")]
             public string? ImageUrl { get; set; }
         }
-
-        public async Task<List<CardModel>> SearchCardsByNameAsync(string query)
-        {
-            if (string.IsNullOrWhiteSpace(query) || query.Length < 3)
-            {
-                return new List<CardModel>();
-            }
-
-            string encodedQuery = Uri.EscapeDataString(query);
-
-            Task<string?> nameTask = FetchJsonSafeAsync($"cardinfo.php?fname={encodedQuery}");
-            Task<string?> descTask = FetchJsonSafeAsync($"cardinfo.php?desc={encodedQuery}");
-
-            await Task.WhenAll(nameTask, descTask);
-
-            List<CardModel> nameResults = ParseCardsFromJson(nameTask.Result ?? string.Empty);
-            List<CardModel> descResults = ParseCardsFromJson(descTask.Result ?? string.Empty);
-
-            return nameResults
-                .UnionBy(descResults, card => card.Id)
-                .ToList();
-        }
-
-        private async Task<string?> FetchJsonSafeAsync(string endpoint)
-        {
-            try
-            {
-                return await _httpClient.GetStringAsync(endpoint);
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
-        private List<CardModel> ParseCardsFromJson(string? json)
-        {
-            if (string.IsNullOrWhiteSpace(json))
-            {
-                return new List<CardModel>();
-            }
-
-            try
-            {
-                var apiResponse = JsonSerializer.Deserialize<YgoApiResponseDto>(json, _jsonOptions);
-                return apiResponse?.Data?.Select(dto => new CardModel
-                {
-                    Id = dto.Id,
-                    Name = dto.Name ?? string.Empty,
-                    Type = dto.Type ?? string.Empty,
-                    Description = dto.Description ?? string.Empty,
-                    Atk = dto.Atk,
-                    Def = dto.Def,
-                    Level = dto.Level,
-                    Race = dto.Race ?? string.Empty,
-                    Attribute = dto.Attribute ?? string.Empty,
-                    ImageUrl = dto.CardImages.FirstOrDefault()?.ImageUrl ?? string.Empty
-                }).ToList() ?? new List<CardModel>();
-            }
-            catch
-            {
-                return new List<CardModel>();
-            }
-        }
-
     }
 }
