@@ -40,7 +40,7 @@ dotnet run --project DuelBotStudio/DuelBotStudio.csproj
 
 ## External services and cache
 
-Card metadata is retrieved from the YGOPRODeck API; card images are retrieved from its image service. Successful metadata responses and downloaded images are cached under the following directory. In-memory caches are bounded, and duplicate concurrent requests for the same card share a single fetch:
+Card metadata is retrieved from the YGOPRODeck API; card images are retrieved from its image service. Successful metadata responses and downloaded images are cached under the following directory. Both in-memory caches are bounded: card metadata keeps up to 500 entries and images keep up to 100 decoded images. Duplicate concurrent requests for the same card share a single fetch:
 
 ```text
 %LOCALAPPDATA%\DuelBotStudio\Cache

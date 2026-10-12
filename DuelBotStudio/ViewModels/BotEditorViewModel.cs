@@ -5,6 +5,7 @@ using System.Net.Http;
 using System.Text.Json;
 using DuelBotStudio.Models.Bot;
 using DuelBotStudio.Models.Card;
+using DuelBotStudio.Models.Deck;
 using DuelBotStudio.Services;
 
 namespace DuelBotStudio.ViewModels
@@ -14,6 +15,7 @@ namespace DuelBotStudio.ViewModels
     {
         private readonly YgoCardInfoService _cardInfoService;
         private readonly BotProfileJsonService _profileService;
+        private readonly DeckManager? _deckManager;
         private int _searchGeneration;
         private bool _isLoading;
         private bool _isDirty;
@@ -24,15 +26,20 @@ namespace DuelBotStudio.ViewModels
         private string? _filePath;
         private bool _isRuleDraftActive;
         private BotMode? _selectedMode;
-        private BotCardGroup? _selectedGroup;
         private BotRule? _selectedRule;
         private CardModel? _selectedCard;
+        private CardModel? _selectedDeckCard;
+        private BotCardGroup? _selectedGroup;
 
         /// <summary>Creates the bot editor view model.</summary>
-        public BotEditorViewModel(YgoCardInfoService cardInfoService, BotProfileJsonService profileService)
+        public BotEditorViewModel(
+            YgoCardInfoService cardInfoService,
+            BotProfileJsonService profileService,
+            DeckManager? deckManager = null)
         {
             _cardInfoService = cardInfoService ?? throw new ArgumentNullException(nameof(cardInfoService));
             _profileService = profileService ?? throw new ArgumentNullException(nameof(profileService));
+            _deckManager = deckManager;
             var defaultProfile = new BotProfile();
             _botName = defaultProfile.BotName;
             _initialModeId = defaultProfile.InitialModeId;
@@ -47,7 +54,17 @@ namespace DuelBotStudio.ViewModels
             Modes.CollectionChanged += (_, _) => MarkDirty();
             Cards.CollectionChanged += (_, _) => MarkDirty();
             Groups.CollectionChanged += (_, _) => MarkDirty();
-            Rules.CollectionChanged += (_, _) => MarkDirty();
+            Rules.CollectionChanged += (_, _) =>
+            {
+                MarkDirty();
+                RefreshRuleViews();
+            };
+            DeckCards = new ObservableCollection<CardModel>();
+            RefreshDeckCards();
+            if (_deckManager is not null)
+            {
+                _deckManager.DeckChanged += OnDeckChanged;
+            }
         }
 
         /// <summary>Gets the available decision points.</summary>
@@ -80,8 +97,36 @@ namespace DuelBotStudio.ViewModels
         /// <summary>Gets the profile rules.</summary>
         public ObservableCollection<BotRule> Rules { get; } = new();
 
+        /// <summary>Gets rules for the selected deck card.</summary>
+        public ObservableCollection<BotRule> SelectedCardRules { get; } = new();
+
+        /// <summary>Gets rules for the selected group.</summary>
+        public ObservableCollection<BotRule> SelectedGroupRules { get; } = new();
+
+        /// <summary>Gets global rules.</summary>
+        public ObservableCollection<BotRule> GlobalRules { get; } = new();
+
         /// <summary>Gets the current card search results.</summary>
         public ObservableCollection<CardModel> SearchResults { get; } = new();
+
+        /// <summary>Gets the unique cards currently present in the active deck.</summary>
+        public ObservableCollection<CardModel> DeckCards { get; }
+
+        /// <summary>Gets the cards assigned to the selected group.</summary>
+        public ObservableCollection<BotCardProfile> SelectedGroupCards { get; } = new();
+
+        /// <summary>Gets or sets the selected card from the active deck.</summary>
+        public CardModel? SelectedDeckCard
+        {
+            get => _selectedDeckCard;
+            set
+            {
+                if (SetProperty(ref _selectedDeckCard, value))
+                {
+                    RefreshRuleViews();
+                }
+            }
+        }
 
         /// <summary>Gets or sets the profile name.</summary>
         public string BotName
@@ -120,7 +165,14 @@ namespace DuelBotStudio.ViewModels
         public BotCardGroup? SelectedGroup
         {
             get => _selectedGroup;
-            set => SetProperty(ref _selectedGroup, value);
+            set
+            {
+                if (SetProperty(ref _selectedGroup, value))
+                {
+                    RefreshSelectedGroupCards();
+                    RefreshRuleViews();
+                }
+            }
         }
 
         /// <summary>Gets or sets the selected rule.</summary>
@@ -250,6 +302,47 @@ namespace DuelBotStudio.ViewModels
             StatusMessage = "Enter the rule details, then apply the rule.";
         }
 
+        /// <summary>Starts a rule owned by the selected deck card.</summary>
+        public void BeginNewCardRule()
+        {
+            if (SelectedDeckCard is null)
+            {
+                StatusMessage = "Select a card from the active deck first.";
+                return;
+            }
+
+            BeginNewRule();
+            Draft.Scope = BotRuleScope.Card;
+            Draft.SubjectCardId = SelectedDeckCard.Id.ToString(
+                System.Globalization.CultureInfo.InvariantCulture);
+            Draft.SubjectCardName = SelectedDeckCard.Name;
+            RegisterCard(SelectedDeckCard);
+            StatusMessage = $"Creating rules for {SelectedDeckCard.Name}.";
+        }
+
+        /// <summary>Starts a rule owned by the selected group.</summary>
+        public void BeginNewGroupRule()
+        {
+            if (SelectedGroup is null)
+            {
+                StatusMessage = "Create or select a card group first.";
+                return;
+            }
+
+            BeginNewRule();
+            Draft.Scope = BotRuleScope.Group;
+            Draft.SubjectGroupId = SelectedGroup.Id;
+            StatusMessage = $"Creating rules for the {SelectedGroup.Name} group.";
+        }
+
+        /// <summary>Starts a rule that applies globally.</summary>
+        public void BeginNewGlobalRule()
+        {
+            BeginNewRule();
+            Draft.Scope = BotRuleScope.Global;
+            StatusMessage = "Creating a global rule.";
+        }
+
         /// <summary>Creates a new mode for a distinct strategy such as a defensive plan.</summary>
         public void AddMode()
         {
@@ -299,6 +392,55 @@ namespace DuelBotStudio.ViewModels
             StatusMessage = "Card group removed.";
         }
 
+        private void RefreshSelectedGroupCards()
+        {
+            SelectedGroupCards.Clear();
+            if (SelectedGroup is null)
+            {
+                return;
+            }
+
+            foreach (int cardId in SelectedGroup.CardIds)
+            {
+                BotCardProfile? card = Cards.FirstOrDefault(candidate => candidate.CardId == cardId);
+                if (card is not null)
+                {
+                    SelectedGroupCards.Add(card);
+                }
+            }
+        }
+
+        private void RefreshRuleViews()
+        {
+            SelectedCardRules.Clear();
+            SelectedGroupRules.Clear();
+            GlobalRules.Clear();
+
+            if (SelectedDeckCard is not null)
+            {
+                foreach (BotRule rule in Rules.Where(rule =>
+                    rule.Scope == BotRuleScope.Card &&
+                    rule.SubjectCardId == SelectedDeckCard.Id))
+                {
+                    SelectedCardRules.Add(rule);
+                }
+            }
+
+            if (SelectedGroup is not null)
+            {
+                foreach (BotRule rule in Rules.Where(rule =>
+                    rule.Scope == BotRuleScope.Group &&
+                    rule.SubjectGroupId == SelectedGroup.Id))
+                {
+                    SelectedGroupRules.Add(rule);
+                }
+            }
+
+            foreach (BotRule rule in Rules.Where(rule => rule.Scope == BotRuleScope.Global))
+            {
+                GlobalRules.Add(rule);
+            }
+        }
 
         /// <summary>Removes the selected mode when no profile reference depends on it.</summary>
         public void RemoveSelectedMode()
@@ -348,16 +490,40 @@ namespace DuelBotStudio.ViewModels
 
             if (Cards.All(card => card.CardId != SelectedCard.Id))
             {
-                Cards.Add(new BotCardProfile
-                {
-                    CardId = SelectedCard.Id,
-                    CardName = SelectedCard.Name
-                });
+                RegisterCard(SelectedCard);
                 StatusMessage = $"{SelectedCard.Name} was added to the bot catalog.";
             }
             else
             {
                 StatusMessage = $"{SelectedCard.Name} is already in the bot catalog.";
+            }
+        }
+
+        private void RegisterCard(CardModel card)
+        {
+            if (Cards.All(existing => existing.CardId != card.Id))
+            {
+                Cards.Add(new BotCardProfile { CardId = card.Id, CardName = card.Name });
+            }
+        }
+
+        private void OnDeckChanged(object? sender, EventArgs e) => RefreshDeckCards();
+
+        private void RefreshDeckCards()
+        {
+            DeckCards.Clear();
+            if (_deckManager is null)
+            {
+                return;
+            }
+
+            foreach (CardModel card in _deckManager.CurrentDeck.MainDeck
+                .Concat(_deckManager.CurrentDeck.ExtraDeck)
+                .Concat(_deckManager.CurrentDeck.SideDeck)
+                .GroupBy(card => card.Id)
+                .Select(group => group.First()))
+            {
+                DeckCards.Add(card);
             }
         }
 
@@ -380,6 +546,7 @@ namespace DuelBotStudio.ViewModels
                 {
                     cardProfile.GroupIds.Add(SelectedGroup.Id);
                 }
+                RefreshSelectedGroupCards();
                 StatusMessage = $"{SelectedCard.Name} added to {SelectedGroup.Name}.";
                 MarkDirty();
             }
@@ -387,6 +554,23 @@ namespace DuelBotStudio.ViewModels
             {
                 StatusMessage = $"{SelectedCard.Name} is already in {SelectedGroup.Name}.";
             }
+        }
+
+        /// <summary>Removes the selected catalog card from the selected group.</summary>
+        public void RemoveSelectedCardFromGroup()
+        {
+            if (SelectedGroup is null || SelectedGroupCards.Count == 0)
+            {
+                StatusMessage = "Select a group containing cards first.";
+                return;
+            }
+
+            BotCardProfile card = SelectedGroupCards.Last();
+            SelectedGroup.CardIds.Remove(card.CardId);
+            card.GroupIds?.Remove(SelectedGroup.Id);
+            RefreshSelectedGroupCards();
+            MarkDirty();
+            StatusMessage = $"{card.CardName} removed from {SelectedGroup.Name}.";
         }
 
         /// <summary>Uses the selected card as the owner of the current rule.</summary>
@@ -461,6 +645,15 @@ namespace DuelBotStudio.ViewModels
             _isRuleDraftActive = true;
             StatusMessage = "Rule applied. Save the profile to write the JSON file.";
             return true;
+        }
+
+        /// <summary>Loads the selected rule into the rule editor.</summary>
+        public void LoadSelectedRuleForEditing()
+        {
+            if (SelectedRule is not null)
+            {
+                LoadRuleDraft(SelectedRule);
+            }
         }
 
         /// <summary>Deletes the selected rule from the profile.</summary>

@@ -18,13 +18,22 @@
         <ScrollViewer VerticalScrollBarVisibility="Auto">
             <StackPanel>
                 <TextBlock x:Name="MainDeckHeader" Text="Main Deck (0)" Foreground="White" FontSize="16" FontWeight="Bold" Margin="5"/>
-                <WrapPanel x:Name="MainDeckPanel" Margin="0,0,0,15"/>
+                <Border x:Name="MainDeckDropTarget" AllowDrop="True" DragOver="OnDeckSectionDragOver" Drop="OnDeckSectionDrop"
+                        Background="Transparent" Padding="2" MinHeight="70">
+                    <WrapPanel x:Name="MainDeckPanel" Margin="0,0,0,15"/>
+                </Border>
                 <Separator Background="#3E3E42" Margin="0,5"/>
                 <TextBlock x:Name="ExtraDeckHeader" Text="Extra Deck (0)" Foreground="White" FontSize="16" FontWeight="Bold" Margin="5"/>
-                <WrapPanel x:Name="ExtraDeckPanel" Margin="0,0,0,15"/>
+                <Border x:Name="ExtraDeckDropTarget" AllowDrop="True" DragOver="OnDeckSectionDragOver" Drop="OnDeckSectionDrop"
+                        Background="Transparent" Padding="2" MinHeight="70">
+                    <WrapPanel x:Name="ExtraDeckPanel" Margin="0,0,0,15"/>
+                </Border>
                 <Separator Background="#3E3E42" Margin="0,5"/>
                 <TextBlock x:Name="SideDeckHeader" Text="Side Deck (0)" Foreground="White" FontSize="16" FontWeight="Bold" Margin="5"/>
-                <WrapPanel x:Name="SideDeckPanel" Margin="0,0,0,15"/>
+                <Border x:Name="SideDeckDropTarget" AllowDrop="True" DragOver="OnDeckSectionDragOver" Drop="OnDeckSectionDrop"
+                        Background="Transparent" Padding="2" MinHeight="70">
+                    <WrapPanel x:Name="SideDeckPanel" Margin="0,0,0,15"/>
+                </Border>
             </StackPanel>
         </ScrollViewer>
     </DockPanel>

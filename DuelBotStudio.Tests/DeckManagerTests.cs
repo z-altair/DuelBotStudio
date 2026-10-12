@@ -39,6 +39,19 @@ public sealed class DeckManagerTests
     }
 
     [TestMethod]
+    public void AddCard_RejectsCardsInTheWrongMainOrExtraSection()
+    {
+        var manager = CreateManager(new DeckRules(0, 60, 15, 15, 3));
+        var fusion = new CardModel { Id = 10, Name = "Fusion", Type = "Fusion Monster" };
+        var monster = new CardModel { Id = 11, Name = "Monster", Type = "Effect Monster" };
+
+        Assert.Throws<ArgumentException>(() => manager.AddCard(fusion, DeckSection.Main));
+        Assert.Throws<ArgumentException>(() => manager.AddCard(monster, DeckSection.Extra));
+        Assert.IsEmpty(manager.CurrentDeck.MainDeck);
+        Assert.IsEmpty(manager.CurrentDeck.ExtraDeck);
+    }
+
+    [TestMethod]
     public void Validate_UsesConfiguredSectionAndCopyLimits()
     {
         var manager = CreateManager(new DeckRules(1, 2, 1, 1, 2));

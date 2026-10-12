@@ -25,7 +25,6 @@ namespace DuelBotStudio.ViewModels
         private string _maximumCopiesPerCard;
         private bool _isBusy;
         private CardModel? _selectedCard;
-        private DeckSection _selectedSection = DeckSection.Main;
 
         /// <summary>Creates the editor view model.</summary>
         public DeckEditorViewModel(YgoCardInfoService cardInfoService, DeckManager deckManager)
@@ -39,12 +38,8 @@ namespace DuelBotStudio.ViewModels
             _maximumExtraDeckSize = deckManager.Rules.MaximumExtraDeckSize.ToString(CultureInfo.InvariantCulture);
             _maximumSideDeckSize = deckManager.Rules.MaximumSideDeckSize.ToString(CultureInfo.InvariantCulture);
             _maximumCopiesPerCard = deckManager.Rules.MaximumCopiesPerCard.ToString(CultureInfo.InvariantCulture);
-            Sections = Enum.GetValues<DeckSection>();
             RefreshValidation();
         }
-
-        /// <summary>Gets the available deck sections.</summary>
-        public IReadOnlyList<DeckSection> Sections { get; }
 
         /// <summary>Gets the current search query.</summary>
         public string SearchQuery
@@ -74,13 +69,6 @@ namespace DuelBotStudio.ViewModels
 
         /// <summary>Gets whether the search action is available.</summary>
         public bool CanSearch => !IsBusy;
-
-        /// <summary>Gets or sets the target section for the next added card.</summary>
-        public DeckSection SelectedSection
-        {
-            get => _selectedSection;
-            set => SetProperty(ref _selectedSection, value);
-        }
 
         /// <summary>Gets or sets the minimum allowed main-deck size.</summary>
         public string MinimumMainDeckSize
@@ -202,8 +190,23 @@ namespace DuelBotStudio.ViewModels
             }
         }
 
-        /// <summary>Adds the selected card to the chosen section and refreshes validation.</summary>
-        public void AddSelectedCard()
+        /// <summary>Adds a card to the specified section and refreshes validation.</summary>
+        public void AddCard(CardModel card, DeckSection section)
+        {
+            ArgumentNullException.ThrowIfNull(card);
+            try
+            {
+                _deckManager.AddCard(card, section);
+                StatusMessage = $"{card.Name} added to the {section} deck.";
+            }
+            catch (ArgumentException exception)
+            {
+                StatusMessage = exception.Message;
+            }
+        }
+
+        /// <summary>Adds the selected card to main or extra based on its card type.</summary>
+        public void AddSelectedCardAutomatically()
         {
             if (SelectedCard is null)
             {
@@ -211,8 +214,8 @@ namespace DuelBotStudio.ViewModels
                 return;
             }
 
-            _deckManager.AddCard(SelectedCard, SelectedSection);
-            StatusMessage = $"{SelectedCard.Name} added to the {SelectedSection} deck.";
+            DeckSection section = DeckManager.IsExtraDeckCard(SelectedCard) ? DeckSection.Extra : DeckSection.Main;
+            AddCard(SelectedCard, section);
         }
 
         /// <summary>Applies configured section-size and copy limits to the active deck.</summary>

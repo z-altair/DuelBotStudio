@@ -29,12 +29,13 @@ namespace DuelBotStudio
 
             CardDetailsControl.Initialize(cardInfoService, cardImageCache);
             DeckViewerControl.Initialize(_viewModel.DeckManager, cardImageCache);
-            DeckEditorControl.Initialize(cardInfoService, _viewModel.DeckManager);
-            BotEditorControl.Initialize(cardInfoService, botProfileService);
+            DeckEditorControl.Initialize(cardInfoService, _viewModel.DeckManager, cardImageCache);
+            BotEditorControl.Initialize(cardInfoService, botProfileService, _viewModel.DeckManager, cardImageCache);
 
             DeckViewerControl.LoadDeckRequested += OnLoadDeckButtonClick;
             DeckViewerControl.SaveDeckRequested += OnSaveDeckButtonClick;
-            DeckViewerControl.CardSelected += async (_, cardId) => await CardDetailsControl.ShowCardAsync(cardId);
+            DeckViewerControl.CardHovered += async (_, cardId) => await CardDetailsControl.ShowCardAsync(cardId);
+            DeckEditorControl.CardHovered += async (_, cardId) => await CardDetailsControl.ShowCardAsync(cardId);
         }
 
         private async void OnLoadDeckButtonClick(object sender, RoutedEventArgs e)

@@ -12,6 +12,7 @@ namespace DuelBotStudio.Views.Controls
     public partial class BotEditorView : UserControl
     {
         private BotEditorViewModel? _viewModel;
+        private CardImageCache? _cardImageCache;
 
         /// <summary>Creates the bot editor view.</summary>
         public BotEditorView()
@@ -20,9 +21,14 @@ namespace DuelBotStudio.Views.Controls
         }
 
         /// <summary>Connects card lookup and profile persistence services to the editor.</summary>
-        public void Initialize(YgoCardInfoService cardInfoService, BotProfileJsonService profileService)
+        public void Initialize(
+            YgoCardInfoService cardInfoService,
+            BotProfileJsonService profileService,
+            DeckManager deckManager,
+            CardImageCache cardImageCache)
         {
-            _viewModel = new BotEditorViewModel(cardInfoService, profileService);
+            _cardImageCache = cardImageCache;
+            _viewModel = new BotEditorViewModel(cardInfoService, profileService, deckManager);
             DataContext = _viewModel;
         }
 
@@ -134,8 +140,54 @@ namespace DuelBotStudio.Views.Controls
             };
         }
 
-        private void OnNewRuleButtonClick(object sender, RoutedEventArgs e) =>
+        private void OnNewRuleButtonClick(object sender, RoutedEventArgs e)
+        {
             _viewModel?.BeginNewRule();
+            RuleEditorPanel.Visibility = Visibility.Visible;
+        }
+
+        private void OnModifyRuleButtonClick(object sender, RoutedEventArgs e)
+        {
+            if (_viewModel?.SelectedRule is null)
+            {
+                return;
+            }
+
+            RuleEditorPanel.Visibility = Visibility.Visible;
+            _viewModel.LoadSelectedRuleForEditing();
+        }
+
+        private void OnNewCardRuleButtonClick(object sender, RoutedEventArgs e)
+        {
+            _viewModel?.BeginNewCardRule();
+            RuleEditorPanel.Visibility = Visibility.Visible;
+        }
+
+        private void OnNewGroupRuleButtonClick(object sender, RoutedEventArgs e)
+        {
+            _viewModel?.BeginNewGroupRule();
+            RuleEditorPanel.Visibility = Visibility.Visible;
+        }
+
+        private void OnNewGlobalRuleButtonClick(object sender, RoutedEventArgs e)
+        {
+            _viewModel?.BeginNewGlobalRule();
+            RuleEditorPanel.Visibility = Visibility.Visible;
+        }
+
+        private async void OnDeckCardSelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_viewModel?.SelectedDeckCard is null || _cardImageCache is null)
+            {
+                return;
+            }
+
+            SelectedBotCardImage.Source = await _cardImageCache.GetCardImageAsync(
+                _viewModel.SelectedDeckCard.Id);
+        }
+
+        private void OnCloseRuleEditorButtonClick(object sender, RoutedEventArgs e) =>
+            RuleEditorPanel.Visibility = Visibility.Collapsed;
 
         private void OnApplyRuleButtonClick(object sender, RoutedEventArgs e) =>
             _viewModel?.ApplyRule();
@@ -163,6 +215,9 @@ namespace DuelBotStudio.Views.Controls
 
         private void OnAddSelectedCardToGroupButtonClick(object sender, RoutedEventArgs e) =>
             _viewModel?.AddSelectedCardToGroup();
+
+        private void OnRemoveSelectedCardFromGroupButtonClick(object sender, RoutedEventArgs e) =>
+            _viewModel?.RemoveSelectedCardFromGroup();
 
         private void OnUseCardAsTargetButtonClick(object sender, RoutedEventArgs e) =>
             _viewModel?.UseSelectedCardAsTarget();

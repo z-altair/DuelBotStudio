@@ -12,271 +12,346 @@
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="220"/>
+                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0" Margin="0,0,12,0">
-                    <TextBlock Text="Bot profile" Foreground="White" FontSize="16" FontWeight="Bold"/>
+                <StackPanel>
+                    <TextBlock Text="Bot profile name" Foreground="White" FontSize="16" FontWeight="Bold"/>
                     <TextBox Text="{Binding BotName, UpdateSourceTrigger=PropertyChanged}"
-                             Margin="0,5,0,0" Height="30" VerticalContentAlignment="Center"/>
+                             Height="30" Width="320" Margin="0,5,0,0"/>
                 </StackPanel>
-                <StackPanel Grid.Column="1" Margin="0,0,8,0">
-                    <TextBlock Text="Initial mode" Foreground="#DDDDDD" Margin="0,0,0,4"/>
-                    <ComboBox ItemsSource="{Binding Modes}" DisplayMemberPath="Name" SelectedValuePath="Id"
-                              SelectedValue="{Binding InitialModeId, UpdateSourceTrigger=PropertyChanged}" Height="30"/>
-                </StackPanel>
-                <Button Grid.Column="2" Content="Load JSON" Width="90" Height="30" Margin="0,18,6,0"
-                        Click="OnLoadButtonClick"/>
-                <Button Grid.Column="3" Content="Save JSON" Width="90" Height="30" Margin="0,18,0,0"
-                        Click="OnSaveButtonClick"/>
+                <Button Grid.Column="1" Content="Load JSON" Width="90" Height="30"
+                        Margin="0,18,6,0" Click="OnLoadButtonClick"/>
+                <Button Grid.Column="2" Content="Save JSON" Width="90" Height="30"
+                        Margin="0,18,6,0" Click="OnSaveButtonClick"/>
+                <TextBlock Grid.Column="3" Text="{Binding StatusMessage}" Foreground="#FFB870"
+                           VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="300"/>
             </Grid>
         </Border>
 
-        <Grid Grid.Row="1">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="3*"/>
-                <ColumnDefinition Width="8"/>
-                <ColumnDefinition Width="2*"/>
-            </Grid.ColumnDefinitions>
+        <TabControl Grid.Row="1" Background="#252526" BorderThickness="0">
+            <TabItem Header="Card rules">
+                <Grid Margin="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="310"/>
+                        <ColumnDefinition Width="16"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Grid.Column="0" Background="#1E1E1E" Padding="10">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Top" Text="Cards in active deck"
+                                       Foreground="White" FontSize="16" FontWeight="Bold"/>
+                            <TextBlock DockPanel.Dock="Top"
+                                       Text="Select one card to open its private behavior editor."
+                                       Foreground="#AAAAAA" TextWrapping="Wrap" Margin="0,5,0,10"/>
+                            <ListBox ItemsSource="{Binding DeckCards}"
+                                     SelectedItem="{Binding SelectedDeckCard}"
+                                     SelectionChanged="OnDeckCardSelectionChanged"
+                                     Background="#252526" Foreground="#DDDDDD"/>
+                        </DockPanel>
+                    </Border>
+                    <Grid Grid.Column="2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="260"/>
+                            <ColumnDefinition Width="16"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <Border Background="#111111" Height="360">
+                                <Image x:Name="SelectedBotCardImage" Stretch="Uniform"/>
+                            </Border>
+                            <TextBlock Text="{Binding SelectedDeckCard.Name, TargetNullValue=Select a card}"
+                                       Foreground="#FFD700" FontSize="18" FontWeight="Bold"
+                                       TextWrapping="Wrap" Margin="0,10,0,0"/>
+                            <Button Content="New rule for this card" Margin="0,10,0,0"
+                                    Click="OnNewCardRuleButtonClick"/>
+                        </StackPanel>
+                        <Border Grid.Column="2" Background="#1E1E1E" Padding="10">
+                            <DockPanel>
+                                <StackPanel DockPanel.Dock="Top">
+                                    <TextBlock Text="Rules for selected card" Foreground="White"
+                                               FontSize="16" FontWeight="Bold"/>
+                                    <TextBlock Text="Select a rule and modify it only when you are ready."
+                                               Foreground="#AAAAAA" Margin="0,4,0,8"/>
+                                    <Button Content="Modify selected rule" Width="145"
+                                            HorizontalAlignment="Left"
+                                            Click="OnModifyRuleButtonClick"/>
+                                </StackPanel>
+                                <DataGrid ItemsSource="{Binding SelectedCardRules}" SelectedItem="{Binding SelectedRule}"
+                                          AutoGenerateColumns="False" IsReadOnly="True"
+                                          CanUserAddRows="False" Margin="0,10,0,0"
+                                          Background="#1E1E1E" Foreground="#DDDDDD"
+                                          RowBackground="#252526" AlternatingRowBackground="#2D2D30">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Priority" Binding="{Binding Priority}" Width="80"/>
+                                        <DataGridTextColumn Header="Rule" Binding="{Binding Name}" Width="*"/>
+                                        <DataGridTextColumn Header="Action" Binding="{Binding Action}" Width="140"/>
+                                        <DataGridCheckBoxColumn Header="On" Binding="{Binding IsEnabled}" Width="45"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </DockPanel>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </TabItem>
 
-            <Grid Grid.Column="0">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="230"/>
-                    <RowDefinition Height="8"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
-                <Border Grid.Row="0" Background="#252526" Padding="8">
-                    <DockPanel>
-                        <TextBlock DockPanel.Dock="Top" Text="Priority rules (higher number runs first)"
-                                   Foreground="White" FontWeight="Bold" Margin="0,0,0,6"/>
-                        <DataGrid ItemsSource="{Binding Rules}" SelectedItem="{Binding SelectedRule}"
-                                  AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
-                                  CanUserSortColumns="False"
-                                  Background="#1E1E1E" Foreground="#DDDDDD" RowBackground="#252526"
-                                  AlternatingRowBackground="#2D2D30" HeadersVisibility="Column">
-                            <DataGrid.Columns>
-                                <DataGridTextColumn Header="Priority" Binding="{Binding Priority}" Width="65"/>
-                                <DataGridTextColumn Header="Rule" Binding="{Binding Name}" Width="*"/>
-                                <DataGridTextColumn Header="Owner" Binding="{Binding Scope}" Width="75"/>
-                                <DataGridTextColumn Header="Subject" Binding="{Binding SubjectCardName}" Width="*"/>
-                                <DataGridTextColumn Header="Mode" Binding="{Binding ModeId}" Width="95"/>
-                                <DataGridTextColumn Header="Decision" Binding="{Binding DecisionPoint}" Width="125"/>
-                                <DataGridTextColumn Header="Action" Binding="{Binding Action}" Width="110"/>
-                                <DataGridTextColumn Header="Card" Binding="{Binding TargetCardName}" Width="*"/>
-                                <DataGridTextColumn Header="Next mode" Binding="{Binding NextModeId}" Width="105"/>
-                                <DataGridCheckBoxColumn Header="On" Binding="{Binding IsEnabled}" Width="45"/>
-                            </DataGrid.Columns>
-                        </DataGrid>
-                    </DockPanel>
-                </Border>
-
-                <Border Grid.Row="2" Background="#252526" Padding="10">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
-                        <StackPanel>
-                            <TextBlock Text="Rule editor" Foreground="White" FontSize="15"
-                                       FontWeight="Bold" Margin="0,0,0,8"/>
+            <TabItem Header="Card groups">
+                <Grid Margin="12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="12"/>
+                        <RowDefinition Height="220"/>
+                    </Grid.RowDefinitions>
+                    <Grid Grid.Row="0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="280"/>
+                            <ColumnDefinition Width="16"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Border Grid.Column="0" Background="#1E1E1E" Padding="10">
+                            <DockPanel>
+                                <TextBlock DockPanel.Dock="Top" Text="Groups hub" Foreground="White"
+                                           FontSize="16" FontWeight="Bold"/>
+                                <TextBlock DockPanel.Dock="Top"
+                                           Text="A group is both a reusable set of cards and an ID that rules can target."
+                                           Foreground="#AAAAAA" TextWrapping="Wrap" Margin="0,5,0,10"/>
+                                <ListBox ItemsSource="{Binding Groups}" SelectedItem="{Binding SelectedGroup}"
+                                         DisplayMemberPath="Name" Background="#252526"
+                                         Foreground="#DDDDDD"/>
+                                <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,8,0,0">
+                                    <Button Content="New group" Width="95" Click="OnAddGroupButtonClick"/>
+                                    <Button Content="Remove" Width="80" Margin="6,0,0,0"
+                                            Click="OnRemoveGroupButtonClick"/>
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+                        <Border Grid.Column="2" Background="#1E1E1E" Padding="10">
                             <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="140"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="140"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
                                     <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
-                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Name" Foreground="#DDDDDD" VerticalAlignment="Center"/>
-                                <TextBox Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="3"
-                                         Text="{Binding Draft.Name, UpdateSourceTrigger=PropertyChanged}" Margin="3"/>
-                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Decision point" Foreground="#DDDDDD" VerticalAlignment="Center"/>
-                                <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding DecisionPoints}"
-                                          SelectedItem="{Binding Draft.DecisionPoint}" Margin="3"/>
-                                <TextBlock Grid.Row="1" Grid.Column="2" Text="Action" Foreground="#DDDDDD" VerticalAlignment="Center"/>
-                                <ComboBox Grid.Row="1" Grid.Column="3" ItemsSource="{Binding Actions}"
-                                          SelectedItem="{Binding Draft.Action}" Margin="3"/>
-                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Active mode" Foreground="#DDDDDD" VerticalAlignment="Center"/>
-                                <ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{Binding Modes}"
-                                          DisplayMemberPath="Name" SelectedValuePath="Id"
-                                          SelectedValue="{Binding Draft.ModeId}" Margin="3"/>
-                                <TextBlock Grid.Row="2" Grid.Column="2" Text="Priority" Foreground="#DDDDDD" VerticalAlignment="Center"/>
-                                <TextBox Grid.Row="2" Grid.Column="3"
-                                         Text="{Binding Draft.Priority, UpdateSourceTrigger=PropertyChanged}" Margin="3"/>
-                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Rule owner" Foreground="#DDDDDD" VerticalAlignment="Center"/>
-                                <ComboBox Grid.Row="3" Grid.Column="1" ItemsSource="{Binding RuleScopes}"
-                                          SelectedItem="{Binding Draft.Scope}" Margin="3"/>
-                                <TextBlock Grid.Row="3" Grid.Column="2" Text="Subject card" Foreground="#DDDDDD" VerticalAlignment="Center"/>
-                                <StackPanel Grid.Row="3" Grid.Column="3">
-                                    <TextBlock Text="{Binding Draft.SubjectCardName}" Foreground="#AAAAAA" Margin="3,0,3,1"/>
-                                    <ComboBox ItemsSource="{Binding Groups}" DisplayMemberPath="Name" SelectedValuePath="Id"
-                                              SelectedValue="{Binding Draft.SubjectGroupId}" Margin="3"/>
+                                <TextBlock Grid.Row="0"
+                                           Text="{Binding SelectedGroup.Name, TargetNullValue=Select a group}"
+                                           Foreground="#FFD700" FontSize="18" FontWeight="Bold"/>
+                                <TextBox Grid.Row="1"
+                                         Text="{Binding SelectedGroup.Description, UpdateSourceTrigger=PropertyChanged}"
+                                         AcceptsReturn="True" TextWrapping="Wrap" Height="55" Margin="0,8,0,8"/>
+                                <ListBox Grid.Row="2" ItemsSource="{Binding SelectedGroupCards}"
+                                         DisplayMemberPath="CardName" Background="#252526"
+                                         Foreground="#DDDDDD"/>
+                                <Button Grid.Row="3" Content="Remove last selected group card"
+                                        Width="190" HorizontalAlignment="Left" Margin="0,8,0,0"
+                                        Click="OnRemoveSelectedCardFromGroupButtonClick"/>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                    <Border Grid.Row="2" Background="#1E1E1E" Padding="10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="Find cards to add to the selected group"
+                                           Foreground="White" FontWeight="Bold"/>
+                                <TextBox Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"
+                                         Height="28" Margin="0,5,0,5"/>
+                                <ListBox ItemsSource="{Binding SearchResults}" SelectedItem="{Binding SelectedCard}"
+                                         DisplayMemberPath="Name" Height="100" Background="#252526"
+                                         Foreground="#DDDDDD"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Margin="10,20,0,0">
+                                <Button Content="Search" Width="90" Click="OnSearchButtonClick"/>
+                                <Button Content="Add to group" Width="110" Margin="0,6,0,0"
+                                        Click="OnAddSelectedCardToGroupButtonClick"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Global rules">
+                <Grid Margin="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="16"/>
+                        <ColumnDefinition Width="360"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Grid.Column="0" Background="#1E1E1E" Padding="10">
+                        <DockPanel>
+                            <StackPanel DockPanel.Dock="Top">
+                                <TextBlock Text="Global rules" Foreground="White" FontSize="18"
+                                           FontWeight="Bold"/>
+                                <TextBlock Text="Use these for board-wide decisions that do not belong to one card or group."
+                                           Foreground="#AAAAAA" TextWrapping="Wrap" Margin="0,5,0,10"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Content="New global rule" Width="125"
+                                            Click="OnNewGlobalRuleButtonClick"/>
+                                    <Button Content="Modify selected" Width="125" Margin="8,0,0,0"
+                                            Click="OnModifyRuleButtonClick"/>
                                 </StackPanel>
-                            </Grid>
-
-                            <Grid Margin="0,5,0,0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="140"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="140"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="Target card ID" Foreground="#DDDDDD" VerticalAlignment="Center"/>
-                                <TextBox Grid.Column="1" Text="{Binding Draft.TargetCardId, UpdateSourceTrigger=PropertyChanged}" Margin="3"/>
-                                <TextBlock Grid.Column="2" Text="Next mode (optional)" Foreground="#DDDDDD" VerticalAlignment="Center"/>
-                                <ComboBox Grid.Column="3" ItemsSource="{Binding Modes}"
-                                          DisplayMemberPath="Name" SelectedValuePath="Id"
-                                          SelectedValue="{Binding Draft.NextModeId}" Margin="3"/>
-                            </Grid>
-                            <TextBlock Text="{Binding Draft.TargetCardName}" Foreground="#AAAAAA" Margin="143,0,0,4"/>
-                            <CheckBox Content="Rule enabled" IsChecked="{Binding Draft.IsEnabled}"
-                                      Foreground="#DDDDDD" Margin="0,2,0,0"/>
-
-                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                <Button Content="New rule" Width="90" Margin="0,0,6,0" Click="OnNewRuleButtonClick"/>
-                                <Button Content="Apply rule" Width="90" Margin="0,0,6,0" Click="OnApplyRuleButtonClick"/>
-                                <Button Content="Delete selected" Width="120" Click="OnDeleteRuleButtonClick"/>
                             </StackPanel>
-                        </StackPanel>
-                    </ScrollViewer>
-                </Border>
-            </Grid>
-
-            <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Center"
-                          Background="#444444" ShowsPreview="True"/>
-
-            <Grid Grid.Column="2">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="190"/>
-                    <RowDefinition Height="8"/>
-                    <RowDefinition Height="230"/>
-                    <RowDefinition Height="8"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
-                <Border Grid.Row="0" Background="#252526" Padding="8">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Text="Strategy modes and card groups" Foreground="White" FontWeight="Bold" Margin="0,0,0,5"/>
-                        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,4">
-                            <Button Content="Add mode" Width="85" Margin="0,0,5,0" Click="OnAddModeButtonClick"/>
-                            <Button Content="Remove mode" Width="100" Click="OnRemoveModeButtonClick"/>
-                        </StackPanel>
-                        <Grid Grid.Row="2">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="90"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <ComboBox Grid.Column="0" ItemsSource="{Binding Modes}" DisplayMemberPath="Name"
-                                      SelectedItem="{Binding SelectedMode}" Margin="0,0,5,0"/>
-                            <TextBox Grid.Column="1" Text="{Binding SelectedMode.Name, UpdateSourceTrigger=PropertyChanged}"
-                                     VerticalContentAlignment="Center"/>
-                        </Grid>
-                        <Grid Grid.Row="3" Margin="0,5,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="90"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <ComboBox Grid.Column="0" ItemsSource="{Binding Groups}" DisplayMemberPath="Name"
-                                      SelectedItem="{Binding SelectedGroup}" Margin="0,0,5,0"/>
-                            <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                <Button Content="Add group" Width="80" Margin="0,0,5,0" Click="OnAddGroupButtonClick"/>
-                                <Button Content="Remove group" Width="95" Click="OnRemoveGroupButtonClick"/>
-                            </StackPanel>
-                        </Grid>
-                    </Grid>
-                </Border>
-
-                <Border Grid.Row="2" Background="#252526" Padding="8">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Text="Card lookup" Foreground="White" FontWeight="Bold" Margin="0,0,0,5"/>
-                        <DockPanel Grid.Row="1" Margin="0,0,0,5">
-                            <Button DockPanel.Dock="Right" Content="Search" Width="70" Click="OnSearchButtonClick"/>
-                            <TextBox Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"
-                                     Height="28" VerticalContentAlignment="Center" Margin="0,0,5,0"/>
+                            <DataGrid ItemsSource="{Binding GlobalRules}" SelectedItem="{Binding SelectedRule}"
+                                      AutoGenerateColumns="False" IsReadOnly="True"
+                                      CanUserAddRows="False" Margin="0,12,0,0"
+                                      Background="#1E1E1E" Foreground="#DDDDDD"
+                                      RowBackground="#252526" AlternatingRowBackground="#2D2D30">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Priority" Binding="{Binding Priority}" Width="80"/>
+                                    <DataGridTextColumn Header="Rule" Binding="{Binding Name}" Width="*"/>
+                                    <DataGridTextColumn Header="Action" Binding="{Binding Action}" Width="140"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
                         </DockPanel>
-                        <ListBox Grid.Row="2" ItemsSource="{Binding SearchResults}" SelectedItem="{Binding SelectedCard}"
-                                 DisplayMemberPath="Name" Background="#1E1E1E" Foreground="#DDDDDD"/>
-                        <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,5,0,0">
-                            <Button Content="Register card" Margin="0,0,5,0" Click="OnRegisterCardButtonClick"/>
-                            <Button Content="Use as rule card" Margin="0,0,5,0" Click="OnUseSelectedCardAsSubjectButtonClick"/>
-                            <Button Content="Add to group" Margin="0,0,5,0" Click="OnAddSelectedCardToGroupButtonClick"/>
-                            <Button Content="Use as action target" Margin="0,0,5,0" Click="OnUseCardAsTargetButtonClick"/>
-                            <Button Content="Use in selected condition" Click="OnUseCardInConditionButtonClick"/>
+                    </Border>
+                    <Border Grid.Column="2" Background="#1E1E1E" Padding="10">
+                        <StackPanel>
+                            <TextBlock Text="Strategy modes (optional)" Foreground="White"
+                                       FontSize="16" FontWeight="Bold"/>
+                            <TextBlock Text="Modes are labels for broad behavior changes, not rule owners."
+                                       Foreground="#AAAAAA" TextWrapping="Wrap" Margin="0,5,0,8"/>
+                            <ComboBox ItemsSource="{Binding Modes}" DisplayMemberPath="Name"
+                                      SelectedItem="{Binding SelectedMode}"/>
+                            <TextBox Text="{Binding SelectedMode.Name, UpdateSourceTrigger=PropertyChanged}"
+                                     Margin="0,6,0,0"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                <Button Content="New strategy" Width="105" Click="OnAddModeButtonClick"/>
+                                <Button Content="Remove" Width="80" Margin="6,0,0,0"
+                                        Click="OnRemoveModeButtonClick"/>
+                            </StackPanel>
                         </StackPanel>
-                    </Grid>
-                </Border>
+                    </Border>
+                </Grid>
+            </TabItem>
 
-                <Border Grid.Row="4" Background="#252526" Padding="8">
+            <TabItem Header="All rules">
+                <DockPanel Margin="12">
+                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
+                        <TextBlock Text="All bot rules" Foreground="White" FontSize="18"
+                                   FontWeight="Bold" VerticalAlignment="Center"/>
+                        <Button Content="Modify selected" Width="125" Margin="15,0,0,0"
+                                Click="OnModifyRuleButtonClick"/>
+                        <Button Content="New rule" Width="90" Margin="8,0,0,0"
+                                Click="OnNewRuleButtonClick"/>
+                    </StackPanel>
+                    <DataGrid ItemsSource="{Binding Rules}" SelectedItem="{Binding SelectedRule}"
+                              AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False"
+                              Margin="0,12,0,0" Background="#1E1E1E" Foreground="#DDDDDD"
+                              RowBackground="#252526" AlternatingRowBackground="#2D2D30">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Priority" Binding="{Binding Priority}" Width="80"/>
+                            <DataGridTextColumn Header="Rule" Binding="{Binding Name}" Width="*"/>
+                            <DataGridTextColumn Header="Scope" Binding="{Binding Scope}" Width="90"/>
+                            <DataGridTextColumn Header="Owner" Binding="{Binding SubjectCardName}" Width="*"/>
+                            <DataGridTextColumn Header="Action" Binding="{Binding Action}" Width="140"/>
+                            <DataGridCheckBoxColumn Header="On" Binding="{Binding IsEnabled}" Width="45"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+        </TabControl>
+
+        <Border x:Name="RuleEditorPanel" Grid.Row="1" Panel.ZIndex="10"
+                Background="#252526" Padding="14" Visibility="Collapsed">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+                    <DockPanel>
+                        <TextBlock Text="Rule editor" Foreground="White" FontSize="18"
+                                   FontWeight="Bold"/>
+                        <Button DockPanel.Dock="Right" Content="Close" Width="75"
+                                Click="OnCloseRuleEditorButtonClick"/>
+                    </DockPanel>
+                    <TextBlock Text="Build the rule from predefined choices. The card, group or global scope is selected before you arrive here."
+                               Foreground="#AAAAAA" TextWrapping="Wrap" Margin="0,4,0,12"/>
                     <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="120"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="120"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Text="Conditions (all must match)" Foreground="White"
-                                   FontWeight="Bold" Margin="0,0,0,5"/>
-                        <DataGrid Grid.Row="1" ItemsSource="{Binding Draft.Conditions}" SelectedItem="{Binding Draft.SelectedCondition}"
-                                  AutoGenerateColumns="False" CanUserAddRows="False"
-                                  Background="#1E1E1E" Foreground="#DDDDDD" RowBackground="#252526"
-                                  AlternatingRowBackground="#2D2D30" HeadersVisibility="Column">
-                            <DataGrid.Columns>
-                                <DataGridTemplateColumn Header="Type" Width="*">
-                                    <DataGridTemplateColumn.CellTemplate>
-                                        <DataTemplate>
-                                            <ComboBox ItemsSource="{Binding DataContext.ConditionTypes, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}"
-                                                      SelectedItem="{Binding Type, UpdateSourceTrigger=PropertyChanged}"/>
-                                        </DataTemplate>
-                                    </DataGridTemplateColumn.CellTemplate>
-                                </DataGridTemplateColumn>
-                                <DataGridTextColumn Header="Card ID" Binding="{Binding CardId, UpdateSourceTrigger=PropertyChanged}" Width="65"/>
-                                <DataGridTextColumn Header="Card name" Binding="{Binding CardName, UpdateSourceTrigger=PropertyChanged}" Width="*"/>
-                                <DataGridTemplateColumn Header="Zone" Width="90">
-                                    <DataGridTemplateColumn.CellTemplate>
-                                        <DataTemplate>
-                                            <ComboBox ItemsSource="{Binding DataContext.CardZones, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}"
-                                                      SelectedItem="{Binding Zone, UpdateSourceTrigger=PropertyChanged}"/>
-                                        </DataTemplate>
-                                    </DataGridTemplateColumn.CellTemplate>
-                                </DataGridTemplateColumn>
-                                <DataGridTextColumn Header="Minimum uses" Binding="{Binding MinimumCount, UpdateSourceTrigger=PropertyChanged}" Width="90"/>
-                            </DataGrid.Columns>
-                        </DataGrid>
-                        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,5,0,0">
-                            <Button Content="Add condition" Margin="0,0,5,0" Click="OnAddConditionButtonClick"/>
-                            <Button Content="Remove condition" Click="OnRemoveConditionButtonClick"/>
-                        </StackPanel>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Rule name" Foreground="#DDDDDD" VerticalAlignment="Center"/>
+                        <TextBox Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="3"
+                                 Text="{Binding Draft.Name, UpdateSourceTrigger=PropertyChanged}" Margin="3"/>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Owner type" Foreground="#DDDDDD" VerticalAlignment="Center"/>
+                        <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding RuleScopes}"
+                                  SelectedItem="{Binding Draft.Scope}" Margin="3"/>
+                        <TextBlock Grid.Row="1" Grid.Column="2" Text="Priority" Foreground="#DDDDDD" VerticalAlignment="Center"/>
+                        <TextBox Grid.Row="1" Grid.Column="3"
+                                 Text="{Binding Draft.Priority, UpdateSourceTrigger=PropertyChanged}" Margin="3"/>
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="When" Foreground="#DDDDDD" VerticalAlignment="Center"/>
+                        <ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{Binding DecisionPoints}"
+                                  SelectedItem="{Binding Draft.DecisionPoint}" Margin="3"/>
+                        <TextBlock Grid.Row="2" Grid.Column="2" Text="Do" Foreground="#DDDDDD" VerticalAlignment="Center"/>
+                        <ComboBox Grid.Row="2" Grid.Column="3" ItemsSource="{Binding Actions}"
+                                  SelectedItem="{Binding Draft.Action}" Margin="3"/>
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Strategy" Foreground="#DDDDDD" VerticalAlignment="Center"/>
+                        <ComboBox Grid.Row="3" Grid.Column="1" ItemsSource="{Binding Modes}"
+                                  DisplayMemberPath="Name" SelectedValuePath="Id"
+                                  SelectedValue="{Binding Draft.ModeId}" Margin="3"/>
+                        <TextBlock Grid.Row="3" Grid.Column="2" Text="Target card ID" Foreground="#DDDDDD" VerticalAlignment="Center"/>
+                        <TextBox Grid.Row="3" Grid.Column="3"
+                                 Text="{Binding Draft.TargetCardId, UpdateSourceTrigger=PropertyChanged}" Margin="3"/>
                     </Grid>
-                </Border>
-            </Grid>
-        </Grid>
+                    <TextBlock Text="{Binding Draft.TargetCardName}" Foreground="#AAAAAA" Margin="123,0,0,5"/>
+                    <CheckBox Content="Rule enabled" IsChecked="{Binding Draft.IsEnabled}"
+                              Foreground="#DDDDDD"/>
+                    <TextBlock Text="Conditions (all must match)" Foreground="White"
+                               FontWeight="Bold" Margin="0,12,0,4"/>
+                    <DataGrid ItemsSource="{Binding Draft.Conditions}"
+                              SelectedItem="{Binding Draft.SelectedCondition}"
+                              AutoGenerateColumns="False" CanUserAddRows="False" MinHeight="100"
+                              Background="#1E1E1E" Foreground="#DDDDDD"
+                              RowBackground="#252526" AlternatingRowBackground="#2D2D30">
+                        <DataGrid.Columns>
+                            <DataGridTemplateColumn Header="Type" Width="*">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <ComboBox ItemsSource="{Binding DataContext.ConditionTypes, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}"
+                                                  SelectedItem="{Binding Type, UpdateSourceTrigger=PropertyChanged}"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="Card ID" Binding="{Binding CardId, UpdateSourceTrigger=PropertyChanged}" Width="90"/>
+                            <DataGridTemplateColumn Header="Zone" Width="100">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <ComboBox ItemsSource="{Binding DataContext.CardZones, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}"
+                                                  SelectedItem="{Binding Zone, UpdateSourceTrigger=PropertyChanged}"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="Minimum" Binding="{Binding MinimumCount, UpdateSourceTrigger=PropertyChanged}" Width="80"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <WrapPanel Margin="0,7,0,0">
+                        <Button Content="Add condition" Margin="0,0,6,4" Click="OnAddConditionButtonClick"/>
+                        <Button Content="Remove condition" Margin="0,0,12,4" Click="OnRemoveConditionButtonClick"/>
+                        <Button Content="Apply rule" Width="100" Margin="0,0,6,4" Click="OnApplyRuleButtonClick"/>
+                        <Button Content="Delete rule" Width="100" Margin="0,0,6,4" Click="OnDeleteRuleButtonClick"/>
+                    </WrapPanel>
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
 
         <Border Grid.Row="2" Background="#252526" Padding="8" Margin="0,8,0,0">
-            <StackPanel>
-                <TextBlock Text="{Binding StatusMessage}" Foreground="#DDDDDD"
-                           TextWrapping="Wrap" VerticalAlignment="Center"/>
-                <TextBlock Text="Rules are saved as data only; they are not executed here. Negation and effect-use conditions need support from the future runtime."
-                           Foreground="#FFB870" TextWrapping="Wrap" Margin="0,3,0,0"/>
-                <ItemsControl ItemsSource="{Binding ValidationErrors}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding}" Foreground="#FF8080" TextWrapping="Wrap"/>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </StackPanel>
+            <ItemsControl ItemsSource="{Binding ValidationErrors}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding}" Foreground="#FF8080" TextWrapping="Wrap"/>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
         </Border>
     </Grid>
 </UserControl>

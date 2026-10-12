@@ -5,18 +5,37 @@
         <StackPanel Margin="10">
             <TextBlock Text="Card Search" Foreground="White" FontSize="14" FontWeight="Bold" Margin="0,0,0,5"/>
             <TextBox Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"
-                     Height="28" Margin="0,0,0,8" VerticalContentAlignment="Center"/>
+                     Height="28" Margin="0,0,0,8" VerticalContentAlignment="Center"
+                     KeyDown="OnSearchQueryKeyDown"/>
             <Button Content="Search Cards" Height="30" Margin="0,0,0,8"
                     Click="OnSearchButtonClick" IsEnabled="{Binding CanSearch}"/>
             <TextBlock Text="{Binding StatusMessage}" Foreground="#DDDDDD" TextWrapping="Wrap" Margin="0,0,0,8"/>
-            <TextBlock Text="Add to section" Foreground="White" FontSize="12" FontWeight="Bold" Margin="0,0,0,5"/>
-            <ComboBox ItemsSource="{Binding Sections}" SelectedItem="{Binding SelectedSection}"
-                      Height="28" Margin="0,0,0,8"/>
-            <Button Content="Add Selected Card" Height="30" Margin="0,0,0,12"
-                    Click="OnAddCardButtonClick" IsEnabled="{Binding CanAddSelectedCard}"/>
+            <TextBlock Text="Interact with a result" Foreground="#AAAAAA" TextWrapping="Wrap" Margin="0,0,0,8"/>
             <TextBlock Text="Search Results" Foreground="White" FontSize="12" FontWeight="Bold" Margin="0,0,0,5"/>
             <ListBox ItemsSource="{Binding SearchResults}" SelectedItem="{Binding SelectedCard}"
-                     Height="220" Background="#1E1E1E" Foreground="White" DisplayMemberPath="Name"/>
+                     Height="300" Background="#1E1E1E" Foreground="White"
+                     PreviewMouseLeftButtonDown="OnSearchResultMouseLeftButtonDown"
+                     PreviewMouseMove="OnSearchResultMouseMove"
+                     PreviewMouseRightButtonUp="OnSearchResultMouseRightButtonUp">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <Border Padding="4" Margin="0,0,0,5" Background="#2D2D30"
+                                MouseEnter="OnSearchResultMouseEnter">
+                            <StackPanel Orientation="Horizontal">
+                                <Image Width="62" Height="90" Stretch="Uniform" Tag="{Binding}"
+                                       Loaded="OnSearchResultImageLoaded"/>
+                                <StackPanel Margin="8,0,0,0" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Name}" Foreground="White" FontWeight="Bold"
+                                               TextWrapping="Wrap"/>
+                                    <TextBlock Text="{Binding Type}" Foreground="#AAAAAA" Margin="0,4,0,0"/>
+                                    <TextBlock Text="{Binding Description}" Foreground="#CCCCCC"
+                                               TextWrapping="Wrap" MaxHeight="54"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
             <TextBlock Text="Deck Limits" Foreground="White" FontSize="12" FontWeight="Bold" Margin="0,12,0,5"/>
             <Grid Margin="0,0,0,6">
                 <Grid.ColumnDefinitions>

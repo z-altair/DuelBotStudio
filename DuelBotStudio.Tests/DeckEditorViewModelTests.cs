@@ -1,6 +1,7 @@
 using System.IO;
 using System.Net;
 using System.Net.Http;
+using DuelBotStudio.Models.Card;
 using DuelBotStudio.Services;
 using DuelBotStudio.ViewModels;
 
@@ -53,6 +54,24 @@ public sealed class DeckEditorViewModelTests
 
         Assert.AreSame(originalRules, manager.Rules);
         StringAssert.Contains(viewModel.StatusMessage, "invalid");
+    }
+
+    [TestMethod]
+    public void AddSelectedCardAutomatically_UsesExtraDeckForExtraDeckCardTypes()
+    {
+        using var httpClient = new HttpClient(new StubHttpMessageHandler());
+        var cardInfoService = new YgoCardInfoService(httpClient, Path.GetTempPath());
+        var manager = new DeckManager(cardInfoService);
+        var viewModel = new DeckEditorViewModel(cardInfoService, manager)
+        {
+            SelectedCard = new CardModel { Id = 123, Name = "Test Fusion", Type = "Fusion Monster" }
+        };
+
+        viewModel.AddSelectedCardAutomatically();
+
+        Assert.HasCount(0, manager.CurrentDeck.MainDeck);
+        Assert.HasCount(1, manager.CurrentDeck.ExtraDeck);
+        Assert.AreEqual(123, manager.CurrentDeck.ExtraDeck[0].Id);
     }
 
     private sealed class StubHttpMessageHandler : HttpMessageHandler

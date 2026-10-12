@@ -125,10 +125,47 @@ namespace DuelBotStudio.Services
         public void AddCard(CardModel card, DeckSection section)
         {
             ArgumentNullException.ThrowIfNull(card);
+            if (!CanAddCardToSection(card, section, out string? errorMessage))
+            {
+                throw new ArgumentException(errorMessage, nameof(section));
+            }
+
             CurrentDeck.AddCard(card, section);
             _deckVersion++;
             DeckChanged?.Invoke(this, EventArgs.Empty);
         }
+
+        /// <summary>Checks whether a card can be placed in the requested deck section.</summary>
+        public static bool CanAddCardToSection(CardModel card, DeckSection section, out string? errorMessage)
+        {
+            ArgumentNullException.ThrowIfNull(card);
+            errorMessage = null;
+
+            if (section == DeckSection.Main && IsExtraDeckCard(card))
+            {
+                errorMessage = $"'{card.Name}' belongs in the Extra Deck and cannot be added to the Main Deck.";
+                return false;
+            }
+
+            if (section == DeckSection.Extra && HasKnownMainDeckType(card))
+            {
+                errorMessage = $"'{card.Name}' belongs in the Main Deck and cannot be added to the Extra Deck.";
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>Determines whether a card type belongs to the Extra Deck.</summary>
+        public static bool IsExtraDeckCard(CardModel card) =>
+            card.Type.Contains("Fusion", StringComparison.OrdinalIgnoreCase) ||
+            card.Type.Contains("Synchro", StringComparison.OrdinalIgnoreCase) ||
+            card.Type.Contains("XYZ", StringComparison.OrdinalIgnoreCase) ||
+            card.Type.Contains("Xyz", StringComparison.OrdinalIgnoreCase) ||
+            card.Type.Contains("Link", StringComparison.OrdinalIgnoreCase);
+
+        private static bool HasKnownMainDeckType(CardModel card) =>
+            !string.IsNullOrWhiteSpace(card.Type) && !IsExtraDeckCard(card);
 
         /// <summary>Removes the first matching card from the main deck.</summary>
         /// <param name="cardId">Identifier of the card to remove.</param>

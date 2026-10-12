@@ -18,8 +18,8 @@ namespace DuelBotStudio.Views.Controls
         private CardImageCache? _cardImageCache;
         private CancellationTokenSource? _refreshCancellation;
 
-        /// <summary>Raised when the user selects a card.</summary>
-        public event EventHandler<int>? CardSelected;
+        /// <summary>Raised when the pointer enters a deck card.</summary>
+        public event EventHandler<int>? CardHovered;
 
         /// <summary>Raised when the user requests a deck file import.</summary>
         public event RoutedEventHandler? LoadDeckRequested;
@@ -132,8 +132,8 @@ namespace DuelBotStudio.Views.Controls
                     Tag = card,
                     Cursor = Cursors.Hand
                 };
-                image.MouseLeftButtonDown += OnCardImageClick;
                 image.MouseRightButtonDown += OnCardImageRightClick;
+                image.MouseEnter += OnCardImageMouseEnter;
                 panel.Children.Add(image);
 
                 if (_cardImageCache is null)
@@ -168,13 +168,49 @@ namespace DuelBotStudio.Views.Controls
             }
         }
 
-        private void OnCardImageClick(object sender, MouseButtonEventArgs e)
-        {
-            if (sender is Image { Tag: CardModel card })
+        private void OnCardImageMouseEnter(object sender, MouseEventArgs e)
             {
-                CardSelected?.Invoke(this, card.Id);
+                if (sender is Image { Tag: CardModel card })
+                {
+                    CardHovered?.Invoke(this, card.Id);
+                }
             }
-        }
+
+            private void OnDeckSectionDragOver(object sender, DragEventArgs e)
+            {
+                e.Effects = e.Data.GetData(typeof(CardModel)) is CardModel card &&
+                    sender is FrameworkElement target &&
+                    DeckManager.CanAddCardToSection(card, GetDropSection(target), out _)
+                        ? DragDropEffects.Copy
+                        : DragDropEffects.None;
+                e.Handled = true;
+            }
+
+            private void OnDeckSectionDrop(object sender, DragEventArgs e)
+            {
+                if (_deckManager is null || e.Data.GetData(typeof(CardModel)) is not CardModel card)
+                {
+                    return;
+                }
+
+                DeckSection section = GetDropSection((FrameworkElement)sender);
+                try
+                {
+                    _deckManager.AddCard(card, section);
+                }
+                catch (ArgumentException exception)
+                {
+                    StatusText.Text = exception.Message;
+                }
+                e.Handled = true;
+            }
+
+            private DeckSection GetDropSection(FrameworkElement target) =>
+                target == MainDeckDropTarget
+                    ? DeckSection.Main
+                    : target == ExtraDeckDropTarget
+                        ? DeckSection.Extra
+                        : DeckSection.Side;
 
         private void OnCardImageRightClick(object sender, MouseButtonEventArgs e)
         {
