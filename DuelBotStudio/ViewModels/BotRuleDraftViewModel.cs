@@ -12,6 +12,10 @@ namespace DuelBotStudio.ViewModels
     {
         private bool _isResetting;
         private string _name = string.Empty;
+        private BotRuleScope _scope = BotRuleScope.Global;
+        private string _subjectCardId = string.Empty;
+        private string _subjectCardName = string.Empty;
+        private string? _subjectGroupId;
         private BotDecisionPoint _decisionPoint;
         private BotActionType _action;
         private string _priority = "0";
@@ -39,6 +43,34 @@ namespace DuelBotStudio.ViewModels
         {
             get => _name;
             set => SetProperty(ref _name, value);
+        }
+
+        /// <summary>Gets or sets the owner scope of the rule.</summary>
+        public BotRuleScope Scope
+        {
+            get => _scope;
+            set => SetProperty(ref _scope, value);
+        }
+
+        /// <summary>Gets or sets the subject card ID as editable text.</summary>
+        public string SubjectCardId
+        {
+            get => _subjectCardId;
+            set => SetProperty(ref _subjectCardId, value);
+        }
+
+        /// <summary>Gets or sets the subject card name for display.</summary>
+        public string SubjectCardName
+        {
+            get => _subjectCardName;
+            set => SetProperty(ref _subjectCardName, value);
+        }
+
+        /// <summary>Gets or sets the subject group ID.</summary>
+        public string? SubjectGroupId
+        {
+            get => _subjectGroupId;
+            set => SetProperty(ref _subjectGroupId, value);
         }
 
         /// <summary>Gets or sets the decision point.</summary>
@@ -112,6 +144,10 @@ namespace DuelBotStudio.ViewModels
         {
             _isResetting = true;
             Name = "New rule";
+            Scope = BotRuleScope.Global;
+            SubjectCardId = string.Empty;
+            SubjectCardName = string.Empty;
+            SubjectGroupId = null;
             DecisionPoint = BotDecisionPoint.MainPhaseCommand;
             Action = BotActionType.NormalSummon;
             Priority = "0";
@@ -131,6 +167,10 @@ namespace DuelBotStudio.ViewModels
             ArgumentNullException.ThrowIfNull(rule);
             _isResetting = true;
             Name = rule.Name;
+            Scope = rule.Scope;
+            SubjectCardId = rule.SubjectCardId?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
+            SubjectCardName = rule.SubjectCardName;
+            SubjectGroupId = rule.SubjectGroupId;
             DecisionPoint = rule.DecisionPoint;
             Action = rule.Action;
             Priority = rule.Priority.ToString(CultureInfo.InvariantCulture);
@@ -214,10 +254,27 @@ namespace DuelBotStudio.ViewModels
                 targetCardId = parsedId;
             }
 
+            int? subjectCardId = null;
+            if (!string.IsNullOrWhiteSpace(SubjectCardId))
+            {
+                if (!int.TryParse(SubjectCardId, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsedId) ||
+                    parsedId <= 0)
+                {
+                    error = "Subject card ID must be a positive whole number.";
+                    return false;
+                }
+
+                subjectCardId = parsedId;
+            }
+
             rule = new BotRule
             {
                 Id = ruleId,
                 Name = Name,
+                Scope = Scope,
+                SubjectCardId = subjectCardId,
+                SubjectCardName = SubjectCardName,
+                SubjectGroupId = string.IsNullOrWhiteSpace(SubjectGroupId) ? null : SubjectGroupId,
                 ModeId = ModeId,
                 DecisionPoint = DecisionPoint,
                 Action = Action,

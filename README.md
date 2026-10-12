@@ -54,6 +54,10 @@ Invalid cached metadata and corrupt cached images are removed and fetched again.
 
 Bot profiles are independent from deck documents. The JSON schema currently has version `1`; enum values are serialized as stable camel-case strings. Each rule specifies a decision point, a mode, an action, a priority, zero or more conditions (combined with AND), and an optional next mode. Higher priority values are intended to be considered first by a compatible runtime.
 
+The behavior model is intentionally evolving toward card-first authoring. A profile can keep a persistent catalog of `cards` even when a card is not present in the current deck, define editable `groups` such as `starters`, `negations`, or `extenders`, and scope each rule to a specific card, group, or global policy. Removing a card from a deck therefore does not delete its behavior configuration. Group membership is also independent from deck membership so experimental deck lists can be changed without losing strategy work.
+
+The current editor exposes card registration and card-scoped rule ownership while retaining the earlier modes for compatibility. Modes are no longer intended to be the primary user-facing abstraction; future iterations can replace or hide them behind higher-level contexts such as first turn, response, recovery, and resource preservation. The profile remains declarative: DuelBotStudio validates and persists it, but does not execute it or modify `duelbotwrapper`.
+
 For example, a rule may request a normal summon for a card in hand and switch to a defensive mode after it matches:
 
 ```json

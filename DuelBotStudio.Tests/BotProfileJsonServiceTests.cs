@@ -26,6 +26,48 @@ public sealed class BotProfileJsonServiceTests
     }
 
     [TestMethod]
+    public void Serialize_RoundTripsCardCatalogGroupsAndScopedRules()
+    {
+        BotProfile profile = CreateValidProfile();
+        profile.Cards.Add(new BotCardProfile
+        {
+            CardId = 123,
+            CardName = "Negation card",
+            Notes = "Keep this available for important activations."
+        });
+        profile.Groups.Add(new BotCardGroup
+        {
+            Id = "negations",
+            Name = "Negations",
+            CardIds = [123],
+            Priority = 100
+        });
+        profile.Rules[0].Scope = BotRuleScope.Card;
+        profile.Rules[0].SubjectCardId = 123;
+        profile.Rules[0].SubjectCardName = "Negation card";
+
+        BotProfile result = _service.Deserialize(_service.Serialize(profile));
+
+        Assert.HasCount(1, result.Cards);
+        Assert.AreEqual("Negations", result.Groups[0].Name);
+        Assert.AreEqual(BotRuleScope.Card, result.Rules[0].Scope);
+        Assert.AreEqual(123, result.Rules[0].SubjectCardId);
+    }
+
+    [TestMethod]
+    public void Serialize_RejectsGroupRuleWithoutDefinedGroup()
+    {
+        BotProfile profile = CreateValidProfile();
+        profile.Rules[0].Scope = BotRuleScope.Group;
+        profile.Rules[0].SubjectGroupId = "missing-group";
+
+        InvalidDataException exception = Assert.Throws<InvalidDataException>(
+            () => _service.Serialize(profile));
+
+        StringAssert.Contains(exception.Message, "group ID");
+    }
+
+    [TestMethod]
     public void Deserialize_RoundTripsConditionsAndModeTransitions()
     {
         BotProfile original = CreateValidProfile();

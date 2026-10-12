@@ -58,6 +58,8 @@
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Priority" Binding="{Binding Priority}" Width="65"/>
                                 <DataGridTextColumn Header="Rule" Binding="{Binding Name}" Width="*"/>
+                                <DataGridTextColumn Header="Owner" Binding="{Binding Scope}" Width="75"/>
+                                <DataGridTextColumn Header="Subject" Binding="{Binding SubjectCardName}" Width="*"/>
                                 <DataGridTextColumn Header="Mode" Binding="{Binding ModeId}" Width="95"/>
                                 <DataGridTextColumn Header="Decision" Binding="{Binding DecisionPoint}" Width="125"/>
                                 <DataGridTextColumn Header="Action" Binding="{Binding Action}" Width="110"/>
@@ -85,6 +87,7 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="Name" Foreground="#DDDDDD" VerticalAlignment="Center"/>
                                 <TextBox Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="3"
@@ -102,6 +105,15 @@
                                 <TextBlock Grid.Row="2" Grid.Column="2" Text="Priority" Foreground="#DDDDDD" VerticalAlignment="Center"/>
                                 <TextBox Grid.Row="2" Grid.Column="3"
                                          Text="{Binding Draft.Priority, UpdateSourceTrigger=PropertyChanged}" Margin="3"/>
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Rule owner" Foreground="#DDDDDD" VerticalAlignment="Center"/>
+                                <ComboBox Grid.Row="3" Grid.Column="1" ItemsSource="{Binding RuleScopes}"
+                                          SelectedItem="{Binding Draft.Scope}" Margin="3"/>
+                                <TextBlock Grid.Row="3" Grid.Column="2" Text="Subject card" Foreground="#DDDDDD" VerticalAlignment="Center"/>
+                                <StackPanel Grid.Row="3" Grid.Column="3">
+                                    <TextBlock Text="{Binding Draft.SubjectCardName}" Foreground="#AAAAAA" Margin="3,0,3,1"/>
+                                    <ComboBox ItemsSource="{Binding Groups}" DisplayMemberPath="Name" SelectedValuePath="Id"
+                                              SelectedValue="{Binding Draft.SubjectGroupId}" Margin="3"/>
+                                </StackPanel>
                             </Grid>
 
                             <Grid Margin="0,5,0,0">
@@ -137,7 +149,7 @@
 
             <Grid Grid.Column="2">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="145"/>
+                    <RowDefinition Height="190"/>
                     <RowDefinition Height="8"/>
                     <RowDefinition Height="230"/>
                     <RowDefinition Height="8"/>
@@ -149,8 +161,9 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Text="Strategy modes" Foreground="White" FontWeight="Bold" Margin="0,0,0,5"/>
+                        <TextBlock Grid.Row="0" Text="Strategy modes and card groups" Foreground="White" FontWeight="Bold" Margin="0,0,0,5"/>
                         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,4">
                             <Button Content="Add mode" Width="85" Margin="0,0,5,0" Click="OnAddModeButtonClick"/>
                             <Button Content="Remove mode" Width="100" Click="OnRemoveModeButtonClick"/>
@@ -164,6 +177,18 @@
                                       SelectedItem="{Binding SelectedMode}" Margin="0,0,5,0"/>
                             <TextBox Grid.Column="1" Text="{Binding SelectedMode.Name, UpdateSourceTrigger=PropertyChanged}"
                                      VerticalContentAlignment="Center"/>
+                        </Grid>
+                        <Grid Grid.Row="3" Margin="0,5,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="90"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="0" ItemsSource="{Binding Groups}" DisplayMemberPath="Name"
+                                      SelectedItem="{Binding SelectedGroup}" Margin="0,0,5,0"/>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <Button Content="Add group" Width="80" Margin="0,0,5,0" Click="OnAddGroupButtonClick"/>
+                                <Button Content="Remove group" Width="95" Click="OnRemoveGroupButtonClick"/>
+                            </StackPanel>
                         </Grid>
                     </Grid>
                 </Border>
@@ -185,6 +210,9 @@
                         <ListBox Grid.Row="2" ItemsSource="{Binding SearchResults}" SelectedItem="{Binding SelectedCard}"
                                  DisplayMemberPath="Name" Background="#1E1E1E" Foreground="#DDDDDD"/>
                         <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,5,0,0">
+                            <Button Content="Register card" Margin="0,0,5,0" Click="OnRegisterCardButtonClick"/>
+                            <Button Content="Use as rule card" Margin="0,0,5,0" Click="OnUseSelectedCardAsSubjectButtonClick"/>
+                            <Button Content="Add to group" Margin="0,0,5,0" Click="OnAddSelectedCardToGroupButtonClick"/>
                             <Button Content="Use as action target" Margin="0,0,5,0" Click="OnUseCardAsTargetButtonClick"/>
                             <Button Content="Use in selected condition" Click="OnUseCardInConditionButtonClick"/>
                         </StackPanel>

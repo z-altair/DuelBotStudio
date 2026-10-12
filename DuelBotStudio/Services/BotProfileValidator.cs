@@ -52,6 +52,68 @@ namespace DuelBotStudio.Services
                 errors.Add("The initial mode must reference a defined bot mode.");
             }
 
+            var cardProfiles = profile.Cards ?? new List<BotCardProfile>();
+            var cardIds = new HashSet<int>();
+            foreach (BotCardProfile? card in cardProfiles)
+            {
+                if (card is null || card.CardId <= 0)
+                {
+                    errors.Add("Every card profile must have a positive card ID.");
+                    continue;
+                }
+
+                if (!cardIds.Add(card.CardId))
+                {
+                    errors.Add($"Duplicate card profile ID: {card.CardId}.");
+                }
+
+                if (card.GroupIds is null)
+                {
+                    errors.Add($"Card profile {card.CardId} cannot have a null group list.");
+                }
+            }
+
+            var groupIds = new HashSet<string>(StringComparer.Ordinal);
+            foreach (BotCardGroup? group in profile.Groups ?? new List<BotCardGroup>())
+            {
+                if (group is null || string.IsNullOrWhiteSpace(group.Id))
+                {
+                    errors.Add("Every card group must have an ID.");
+                    continue;
+                }
+
+                if (!groupIds.Add(group.Id))
+                {
+                    errors.Add($"Duplicate card group ID: {group.Id}.");
+                }
+
+                if (string.IsNullOrWhiteSpace(group.Name))
+                {
+                    errors.Add($"Card group '{group.Id}' must have a name.");
+                }
+
+                if (group.CardIds is null || group.CardIds.Any(cardId => cardId <= 0))
+                {
+                    errors.Add($"Card group '{group.Id}' must contain only positive card IDs.");
+                }
+            }
+
+            foreach (BotCardProfile? card in cardProfiles)
+            {
+                if (card?.GroupIds is null)
+                {
+                    continue;
+                }
+
+                foreach (string groupId in card.GroupIds)
+                {
+                    if (!groupIds.Contains(groupId))
+                    {
+                        errors.Add($"Card profile {card.CardId} references an undefined card group '{groupId}'.");
+                    }
+                }
+            }
+
             if (profile.Rules is null)
             {
                 errors.Add("The rules collection cannot be null.");
@@ -67,7 +129,7 @@ namespace DuelBotStudio.Services
                     continue;
                 }
 
-                ValidateRule(rule, modeIds, ruleIds, errors);
+                ValidateRule(rule, modeIds, groupIds, ruleIds, errors);
             }
 
             return errors;
@@ -76,6 +138,7 @@ namespace DuelBotStudio.Services
         private static void ValidateRule(
             BotRule rule,
             HashSet<string> modeIds,
+            HashSet<string> groupIds,
             HashSet<string> ruleIds,
             List<string> errors)
         {
@@ -92,6 +155,21 @@ namespace DuelBotStudio.Services
             if (string.IsNullOrWhiteSpace(rule.Name))
             {
                 errors.Add("Every rule must have a name.");
+            }
+
+            if (!Enum.IsDefined(rule.Scope))
+            {
+                errors.Add($"{label}: its rule scope is not supported.");
+            }
+            else if (rule.Scope == BotRuleScope.Card &&
+                     (!rule.SubjectCardId.HasValue || rule.SubjectCardId <= 0))
+            {
+                errors.Add($"{label}: card-scoped rules require a valid subject card ID.");
+            }
+            else if (rule.Scope == BotRuleScope.Group &&
+                     (string.IsNullOrWhiteSpace(rule.SubjectGroupId) || !groupIds.Contains(rule.SubjectGroupId)))
+            {
+                errors.Add($"{label}: group-scoped rules require a group ID.");
             }
 
             if (string.IsNullOrWhiteSpace(rule.ModeId) || !modeIds.Contains(rule.ModeId))

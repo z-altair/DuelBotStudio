@@ -30,6 +30,12 @@ namespace DuelBotStudio.Models.Bot
             new BotMode { Id = "defensive", Name = "Defensive" }
         ];
 
+        /// <summary>Gets or sets persistent card behavior metadata, including cards absent from the deck.</summary>
+        public List<BotCardProfile> Cards { get; set; } = new();
+
+        /// <summary>Gets or sets reusable user-defined card groups.</summary>
+        public List<BotCardGroup> Groups { get; set; } = new();
+
         /// <summary>Gets or sets the ordered decision rules in this profile.</summary>
         [JsonRequired]
         public List<BotRule> Rules { get; set; } = new();

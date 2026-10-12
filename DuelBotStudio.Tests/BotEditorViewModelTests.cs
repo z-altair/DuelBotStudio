@@ -2,6 +2,7 @@ using System.IO;
 using System.Net;
 using System.Net.Http;
 using DuelBotStudio.Models.Bot;
+using DuelBotStudio.Models.Card;
 using DuelBotStudio.Services;
 using DuelBotStudio.ViewModels;
 
@@ -165,6 +166,24 @@ public sealed class BotEditorViewModelTests
 
         Assert.AreEqual("High priority", viewModel.Rules[0].Name);
         Assert.AreEqual("Low priority", viewModel.Rules[1].Name);
+    }
+
+    [TestMethod]
+    public void UseSelectedCardAsSubject_RegistersCardOutsideDeck()
+    {
+        using var httpClient = new HttpClient(new StubHttpMessageHandler());
+        var viewModel = new BotEditorViewModel(
+            new YgoCardInfoService(httpClient, Path.GetTempPath()),
+            new BotProfileJsonService());
+
+        viewModel.SelectedCard = new CardModel { Id = 123, Name = "Experimental card" };
+        viewModel.BeginNewRule();
+        viewModel.UseSelectedCardAsSubject();
+
+        Assert.AreEqual(BotRuleScope.Card, viewModel.Draft.Scope);
+        Assert.AreEqual("123", viewModel.Draft.SubjectCardId);
+        Assert.AreEqual("Experimental card", viewModel.Draft.SubjectCardName);
+        Assert.AreEqual(123, viewModel.Cards.Single().CardId);
     }
 
     [TestMethod]

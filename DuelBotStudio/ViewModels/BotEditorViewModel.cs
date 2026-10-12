@@ -24,6 +24,7 @@ namespace DuelBotStudio.ViewModels
         private string? _filePath;
         private bool _isRuleDraftActive;
         private BotMode? _selectedMode;
+        private BotCardGroup? _selectedGroup;
         private BotRule? _selectedRule;
         private CardModel? _selectedCard;
 
@@ -44,6 +45,8 @@ namespace DuelBotStudio.ViewModels
             }
 
             Modes.CollectionChanged += (_, _) => MarkDirty();
+            Cards.CollectionChanged += (_, _) => MarkDirty();
+            Groups.CollectionChanged += (_, _) => MarkDirty();
             Rules.CollectionChanged += (_, _) => MarkDirty();
         }
 
@@ -58,6 +61,15 @@ namespace DuelBotStudio.ViewModels
 
         /// <summary>Gets the available card zones.</summary>
         public IReadOnlyList<BotCardZone> CardZones { get; } = Enum.GetValues<BotCardZone>();
+
+        /// <summary>Gets the available rule owner scopes.</summary>
+        public IReadOnlyList<BotRuleScope> RuleScopes { get; } = Enum.GetValues<BotRuleScope>();
+
+        /// <summary>Gets the persistent card behavior profiles.</summary>
+        public ObservableCollection<BotCardProfile> Cards { get; } = new();
+
+        /// <summary>Gets the reusable card groups.</summary>
+        public ObservableCollection<BotCardGroup> Groups { get; } = new();
 
         /// <summary>Gets the editor for the currently selected rule draft.</summary>
         public BotRuleDraftViewModel Draft { get; }
@@ -102,6 +114,13 @@ namespace DuelBotStudio.ViewModels
         {
             get => _selectedMode;
             set => SetProperty(ref _selectedMode, value);
+        }
+
+        /// <summary>Gets or sets the selected editable card group.</summary>
+        public BotCardGroup? SelectedGroup
+        {
+            get => _selectedGroup;
+            set => SetProperty(ref _selectedGroup, value);
         }
 
         /// <summary>Gets or sets the selected rule.</summary>
@@ -243,6 +262,44 @@ namespace DuelBotStudio.ViewModels
             SelectedMode = mode;
         }
 
+        /// <summary>Creates an empty reusable card group.</summary>
+        public void AddGroup()
+        {
+            var group = new BotCardGroup
+            {
+                Id = $"group-{Guid.NewGuid():N}",
+                Name = "New group"
+            };
+            Groups.Add(group);
+            SelectedGroup = group;
+            StatusMessage = "Card group created.";
+        }
+
+        /// <summary>Removes the selected card group when no rule references it.</summary>
+        public void RemoveSelectedGroup()
+        {
+            if (SelectedGroup is null)
+            {
+                return;
+            }
+
+            if (Rules.Any(rule => rule.Scope == BotRuleScope.Group &&
+                                  rule.SubjectGroupId == SelectedGroup.Id))
+            {
+                StatusMessage = "The selected group is referenced by a rule.";
+                return;
+            }
+
+            Groups.Remove(SelectedGroup);
+            foreach (BotCardProfile card in Cards)
+            {
+                card.GroupIds?.Remove(SelectedGroup.Id);
+            }
+            SelectedGroup = Groups.FirstOrDefault();
+            StatusMessage = "Card group removed.";
+        }
+
+
         /// <summary>Removes the selected mode when no profile reference depends on it.</summary>
         public void RemoveSelectedMode()
         {
@@ -278,6 +335,74 @@ namespace DuelBotStudio.ViewModels
 
             Draft.SetTargetCard(SelectedCard);
             StatusMessage = $"Action target set to {SelectedCard.Name} ({SelectedCard.Id}).";
+        }
+
+        /// <summary>Registers the selected card without requiring it to be in the current deck.</summary>
+        public void RegisterSelectedCard()
+        {
+            if (SelectedCard is null)
+            {
+                StatusMessage = "Select a card from the search results first.";
+                return;
+            }
+
+            if (Cards.All(card => card.CardId != SelectedCard.Id))
+            {
+                Cards.Add(new BotCardProfile
+                {
+                    CardId = SelectedCard.Id,
+                    CardName = SelectedCard.Name
+                });
+                StatusMessage = $"{SelectedCard.Name} was added to the bot catalog.";
+            }
+            else
+            {
+                StatusMessage = $"{SelectedCard.Name} is already in the bot catalog.";
+            }
+        }
+
+        /// <summary>Adds the selected card to the selected reusable group.</summary>
+        public void AddSelectedCardToGroup()
+        {
+            if (SelectedCard is null || SelectedGroup is null)
+            {
+                StatusMessage = "Select both a card and a card group first.";
+                return;
+            }
+
+            if (!SelectedGroup.CardIds.Contains(SelectedCard.Id))
+            {
+                SelectedGroup.CardIds.Add(SelectedCard.Id);
+                RegisterSelectedCard();
+                BotCardProfile cardProfile = Cards.Single(card => card.CardId == SelectedCard.Id);
+                cardProfile.GroupIds ??= new List<string>();
+                if (!cardProfile.GroupIds.Contains(SelectedGroup.Id))
+                {
+                    cardProfile.GroupIds.Add(SelectedGroup.Id);
+                }
+                StatusMessage = $"{SelectedCard.Name} added to {SelectedGroup.Name}.";
+                MarkDirty();
+            }
+            else
+            {
+                StatusMessage = $"{SelectedCard.Name} is already in {SelectedGroup.Name}.";
+            }
+        }
+
+        /// <summary>Uses the selected card as the owner of the current rule.</summary>
+        public void UseSelectedCardAsSubject()
+        {
+            if (SelectedCard is null)
+            {
+                StatusMessage = "Select a card from the search results first.";
+                return;
+            }
+
+            RegisterSelectedCard();
+            Draft.Scope = BotRuleScope.Card;
+            Draft.SubjectCardId = SelectedCard.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            Draft.SubjectCardName = SelectedCard.Name;
+            StatusMessage = $"Rule subject set to {SelectedCard.Name}.";
         }
 
         /// <summary>Applies the selected card to the selected card-specific condition.</summary>
@@ -397,6 +522,8 @@ namespace DuelBotStudio.ViewModels
             BotName = profile.BotName;
             InitialModeId = profile.InitialModeId;
             ReplaceModes(profile.Modes);
+            ReplaceCards(profile.Cards);
+            ReplaceGroups(profile.Groups);
             ReplaceRules(profile.Rules);
             SortRulesByPriority();
 
@@ -422,6 +549,8 @@ namespace DuelBotStudio.ViewModels
             BotName = BotName,
             InitialModeId = InitialModeId,
             Modes = Modes.ToList(),
+            Cards = Cards.Select(CloneCardProfile).ToList(),
+            Groups = Groups.Select(CloneCardGroup).ToList(),
             Rules = Rules.ToList()
         };
 
@@ -456,6 +585,55 @@ namespace DuelBotStudio.ViewModels
                 Rules.Add(rule);
             }
         }
+
+        private void ReplaceCards(IEnumerable<BotCardProfile>? cards)
+        {
+            Cards.Clear();
+            if (cards is null)
+            {
+                return;
+            }
+
+            foreach (BotCardProfile card in cards)
+            {
+                Cards.Add(CloneCardProfile(card));
+            }
+        }
+
+        private void ReplaceGroups(IEnumerable<BotCardGroup>? groups)
+        {
+            Groups.Clear();
+            SelectedGroup = null;
+            if (groups is null)
+            {
+                return;
+            }
+
+            foreach (BotCardGroup group in groups)
+            {
+                Groups.Add(CloneCardGroup(group));
+            }
+
+            SelectedGroup = Groups.FirstOrDefault();
+        }
+
+        private static BotCardProfile CloneCardProfile(BotCardProfile card) => new()
+        {
+            CardId = card.CardId,
+            CardName = card.CardName,
+            IsEnabled = card.IsEnabled,
+            Notes = card.Notes,
+            GroupIds = card.GroupIds?.ToList() ?? new List<string>()
+        };
+
+        private static BotCardGroup CloneCardGroup(BotCardGroup group) => new()
+        {
+            Id = group.Id,
+            Name = group.Name,
+            Description = group.Description,
+            CardIds = group.CardIds?.ToList() ?? new List<int>(),
+            Priority = group.Priority
+        };
 
         private void OnModeChanged(object? sender, PropertyChangedEventArgs e)
         {

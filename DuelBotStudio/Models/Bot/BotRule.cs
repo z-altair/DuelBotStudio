@@ -15,6 +15,18 @@ namespace DuelBotStudio.Models.Bot
         [JsonRequired]
         public string Name { get; set; } = "New rule";
 
+        /// <summary>Gets or sets whether this rule belongs to a card, group, or global policy.</summary>
+        public BotRuleScope Scope { get; set; } = BotRuleScope.Global;
+
+        /// <summary>Gets or sets the card that owns this rule when <see cref="Scope"/> is Card.</summary>
+        public int? SubjectCardId { get; set; }
+
+        /// <summary>Gets or sets the subject card name cached for display.</summary>
+        public string SubjectCardName { get; set; } = string.Empty;
+
+        /// <summary>Gets or sets the group that owns this rule when <see cref="Scope"/> is Group.</summary>
+        public string? SubjectGroupId { get; set; }
+
         /// <summary>Gets or sets the mode in which this rule is eligible.</summary>
         [JsonRequired]
         public string ModeId { get; set; } = "combo";

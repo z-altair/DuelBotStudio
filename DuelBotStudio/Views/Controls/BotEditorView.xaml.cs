@@ -155,8 +155,23 @@ namespace DuelBotStudio.Views.Controls
         private void OnRemoveModeButtonClick(object sender, RoutedEventArgs e) =>
             _viewModel?.RemoveSelectedMode();
 
+        private void OnAddGroupButtonClick(object sender, RoutedEventArgs e) =>
+            _viewModel?.AddGroup();
+
+        private void OnRemoveGroupButtonClick(object sender, RoutedEventArgs e) =>
+            _viewModel?.RemoveSelectedGroup();
+
+        private void OnAddSelectedCardToGroupButtonClick(object sender, RoutedEventArgs e) =>
+            _viewModel?.AddSelectedCardToGroup();
+
         private void OnUseCardAsTargetButtonClick(object sender, RoutedEventArgs e) =>
             _viewModel?.UseSelectedCardAsTarget();
+
+        private void OnRegisterCardButtonClick(object sender, RoutedEventArgs e) =>
+            _viewModel?.RegisterSelectedCard();
+
+        private void OnUseSelectedCardAsSubjectButtonClick(object sender, RoutedEventArgs e) =>
+            _viewModel?.UseSelectedCardAsSubject();
 
         private void OnUseCardInConditionButtonClick(object sender, RoutedEventArgs e) =>
             _viewModel?.UseSelectedCardInCondition();
