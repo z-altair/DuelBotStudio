@@ -16,6 +16,9 @@ namespace DuelBotStudio.Models.Bot
         /// <summary>Gets or sets an optional description of the group's purpose.</summary>
         public string Description { get; set; } = string.Empty;
 
+        /// <summary>Gets or sets the representative card shown in group lists.</summary>
+        public int? RepresentativeCardId { get; set; }
+
         /// <summary>Gets or sets the cards currently assigned to the group.</summary>
         public List<int> CardIds { get; set; } = new();
 

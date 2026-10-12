@@ -24,6 +24,7 @@ namespace DuelBotStudio
             var cardInfoService = new YgoCardInfoService();
             var cardImageCache = new CardImageCache();
             var botProfileService = new BotProfileJsonService();
+            var groupLibraryService = new BotGroupLibraryJsonService();
             _viewModel = new MainWindowViewModel(cardInfoService, new YdkParserService());
             DataContext = _viewModel;
 
@@ -31,6 +32,7 @@ namespace DuelBotStudio
             DeckViewerControl.Initialize(_viewModel.DeckManager, cardImageCache);
             DeckEditorControl.Initialize(cardInfoService, _viewModel.DeckManager, cardImageCache);
             BotEditorControl.Initialize(cardInfoService, botProfileService, _viewModel.DeckManager, cardImageCache);
+            BotGroupEditorControl.Initialize(cardInfoService, groupLibraryService);
 
             DeckViewerControl.LoadDeckRequested += OnLoadDeckButtonClick;
             DeckViewerControl.SaveDeckRequested += OnSaveDeckButtonClick;

@@ -824,6 +824,7 @@ namespace DuelBotStudio.ViewModels
             Id = group.Id,
             Name = group.Name,
             Description = group.Description,
+            RepresentativeCardId = group.RepresentativeCardId,
             CardIds = group.CardIds?.ToList() ?? new List<int>(),
             Priority = group.Priority
         };

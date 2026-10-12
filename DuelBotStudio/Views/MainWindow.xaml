@@ -30,5 +30,8 @@
         <TabItem Header="Bot editor">
             <controls:BotEditorView x:Name="BotEditorControl"/>
         </TabItem>
+        <TabItem Header="Group editor">
+            <controls:BotGroupEditorView x:Name="BotGroupEditorControl"/>
+        </TabItem>
     </TabControl>
 </Window>
